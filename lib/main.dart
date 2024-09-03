@@ -35,40 +35,79 @@ const Letter zero = Letter("0");
 const Letter one = Letter("1");
 
 void main(List<String> arguments) {
-  // var regex = (zero | one).star & (zero & zero & one) & (zero | one).star;
-  // var nfa = NonDeterministicFiniteAutomata.fromRegularExpression(regex, renameStates: true);
-  // var dfa = DeterministicFiniteAutomata.fromNonDeterministicAutomaton(nfa);
+  // A regular expression that accepts all strings that contain the substring '001'.
+  var regex = (zero | one).star & (zero & zero & one) & (zero | one).star;
+  var nfa = NFA.fromRegularExpression(regex, renameStates: true);
+  var dfa = DFA.fromNFA(nfa, renameStates: true);
+  var minimalDfa = dfa.minimized(renameStates: true);
 
-  // print(nfa.generateTransitionTable());
-  // print("${"-" * 20}${"=" * 4}[]${"=" * 4}${"-" * 20}");
-  // print(dfa.generateTransitionTable());
-  // print(nfa.accepts("00010010110010101"));
-  // print(dfa.accepts("00010010110010101"));
+  /// It works! That's awesome.
+  File("nfa.dot").writeAsStringSync(nfa.dot());
+  File("dfa.dot").writeAsStringSync(dfa.dot());
+  File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
 
-  var states = <State>{
-    const State(0, "q0"),
-    const State(1, "q1"),
-    const State(2, "q2"),
-    const State(3, "q3"),
+  print(dfa.accepts("0101010110010101"));
+}
+
+void test1() {
+  var states = {
+    const State(0, "A"),
+    const State(1, "B"),
+    const State(2, "C"),
+    const State(3, "D"),
+    const State(4, "E"),
   };
-  var alphabet = <Letter>{zero, one};
+  var alphabet = {zero, one};
   var transitions = {
-    (states[0], zero): {states[0], states[1]},
-    (states[0], one): {states[0]},
-    (states[1], zero): {states[2]},
-    (states[2], one): {states[3]},
-    (states[3], zero): {states[3]},
-    (states[3], one): {states[3]},
+    (states[0], zero): states[1],
+    (states[0], one): states[2],
+    (states[1], zero): states[1],
+    (states[1], one): states[3],
+    (states[2], zero): states[1],
+    (states[2], one): states[2],
+    (states[3], zero): states[1],
+    (states[3], one): states[4],
+    (states[4], zero): states[1],
+    (states[4], one): states[2],
   };
   var start = states[0];
-  var accepting = {states[3]};
-  NonDeterministicFiniteAutomata automata = (states, alphabet, transitions, start, accepting).automata;
-  DeterministicFiniteAutomata automata2 = DeterministicFiniteAutomata.fromNonDeterministicAutomaton(automata);
+  var accepting = {states[4]};
+  var dfa = (states, alphabet, transitions, start, accepting).automata.minimized(renameStates: true);
+
+  print(dfa.generateTransitionTable());
+  File("automaton.dot").writeAsStringSync(dfa.dot());
+}
+
+void test2() {
+  var states = {
+    "A": const State(0, "A"),
+    "B": const State(1, "B"),
+    "C": const State(2, "C"),
+    "D": const State(3, "D"),
+    "E": const State(4, "E"),
+    "F": const State(5, "F"),
+  };
+  var alphabet = {zero, one};
+  var transitions = {
+    (states["A"]!, zero): states["B"]!,
+    (states["A"]!, one): states["C"]!,
+    (states["B"]!, zero): states["A"]!,
+    (states["B"]!, one): states["D"]!,
+    (states["C"]!, zero): states["E"]!,
+    (states["C"]!, one): states["F"]!,
+    (states["D"]!, zero): states["E"]!,
+    (states["D"]!, one): states["F"]!,
+    (states["E"]!, zero): states["E"]!,
+    (states["E"]!, one): states["F"]!,
+    (states["F"]!, zero): states["F"]!,
+    (states["F"]!, one): states["F"]!,
+  };
+  var start = states["A"]!;
+  var accepting = {states["D"]!, states["C"]!, states["E"]!};
+  var automata = (states.values.toSet(), alphabet, transitions, start, accepting).automata.minimized();
 
   print(automata.generateTransitionTable());
-  print("${"-" * 20}${"=" * 4}[]${"=" * 4}${"-" * 20}");
-  print(automata2.generateTransitionTable());
-  File("automaton.dot").writeAsStringSync(automata2.dot());
+  File("automaton.dot").writeAsStringSync(automata.dot());
 }
 
 extension<T> on Set<T> {

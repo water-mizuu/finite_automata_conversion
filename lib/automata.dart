@@ -23,10 +23,14 @@ final class State {
   String toString() => label;
 }
 
-final class DeterministicFiniteAutomata {
-  const DeterministicFiniteAutomata(this.states, this.alphabet, this.transitions, this.start, this.accepting);
+final class DFA {
+  const DFA(this.states, this.alphabet, this.transitions, this.start, this.accepting);
 
-  factory DeterministicFiniteAutomata.fromNonDeterministicAutomaton(NonDeterministicFiniteAutomata automaton) {
+  factory DFA.fromNFA(
+    NFA automaton, {
+    bool renameStates = false,
+    bool minimized = false,
+  }) {
     State start = automaton.start;
     Set<State> states = <State>{start};
     Set<Letter> alphabet = automaton.alphabet;
@@ -34,38 +38,42 @@ final class DeterministicFiniteAutomata {
     Set<State> accepting = <State>{if (automaton.accepting.contains(automaton.start)) start};
 
     Queue<Set<State>> queue = Queue<Set<State>>()..add(states.toSet());
+
+    Map<String, String> renames = <String, String>{};
     Map<String, int> stateCounter = <String, int>{start.label: start.id};
 
     while (queue.isNotEmpty) {
       Set<State> current = queue.removeFirst();
-      String fromLabel = current.label;
+
+      String fromLabel = renameStates ? (renames[current.label] ??= "q${renames.length}") : current.label;
+      int fromId = stateCounter[fromLabel] ??= stateCounter.length;
+      State fromState = State(fromId, fromLabel);
 
       for (Letter letter in alphabet) {
         Set<State> nextStates = current //
             .expand((State from) => automaton.transitions[(from, letter)] ?? <State>{})
             .toSet();
 
-        State source = State(
-          stateCounter[fromLabel] ??= stateCounter.length,
-          fromLabel,
-        );
+        String toLabel = renameStates ? (renames[nextStates.label] ??= "q${renames.length}") : nextStates.label;
+        int toId = stateCounter[toLabel] ??= stateCounter.length;
+        State toState = State(toId, toLabel);
 
-        String toLabel = nextStates.label;
-        State target = State(
-          stateCounter[toLabel] ??= stateCounter.length,
-          toLabel,
-        );
-
-        transitions[(source, letter)] = target;
+        transitions[(fromState, letter)] = toState;
         if (nextStates.intersection(automaton.accepting).isNotEmpty) {
-          accepting.add(target);
+          accepting.add(toState);
         }
-        if (states.add(target)) {
+        if (states.add(toState)) {
           queue.add(nextStates);
         }
       }
     }
-    return DeterministicFiniteAutomata(states, alphabet, transitions, start, accepting);
+
+    DFA automata = DFA(states, alphabet, transitions, start, accepting);
+
+    if (minimized) {
+      return automata.minimized(renameStates: renameStates);
+    }
+    return automata;
   }
 
   /// Σ
@@ -82,6 +90,102 @@ final class DeterministicFiniteAutomata {
 
   /// F
   final Set<State> accepting;
+
+  DFA minimized({bool renameStates = false}) {
+    Set<Set<State>> partitions = {
+      {
+        for (State state in states)
+          if (!accepting.contains(state)) state,
+      },
+      {...accepting},
+    };
+
+    /// I. Figure out the grouping of the new states.
+    /// Since we should not modify the set(s) we are iterating over, we need to create a temporary set.
+    Set<Set<State>> newPartitions = <Set<State>>{};
+    Map<Set<State>, Set<State>> toRemoveFromPartitions = <Set<State>, Set<State>>{};
+    bool run = false;
+    do {
+      run = false;
+
+      for (Set<State> partition in partitions) {
+        if (partition.length == 1) {
+          continue;
+        }
+
+        Set<State> toRemoveFromPartition = <State>{};
+        State leftComparator = partition.first;
+        for (State rightComparator in partition.skip(1)) {
+          for (Letter letter in alphabet) {
+            State? leftTo = transitions[(leftComparator, letter)];
+            State? rightTo = transitions[(rightComparator, letter)];
+
+            if (partitions.where((p) => p.contains(leftTo)).firstOrNull !=
+                partitions.where((p) => p.contains(rightTo)).firstOrNull) {
+              /// We need to remove this from the current partition.
+              toRemoveFromPartition.add(rightComparator);
+
+              /// We need to add it to a new partition.
+              newPartitions.add({rightComparator});
+
+              run |= true;
+              break;
+            }
+          }
+        }
+
+        toRemoveFromPartitions[partition] = toRemoveFromPartition;
+      }
+
+      partitions.addAll(newPartitions);
+      for (var (Set<State> partition, Set<State> toRemove) in toRemoveFromPartitions.pairs) {
+        partition.removeAll(toRemove);
+      }
+
+      newPartitions.clear();
+      toRemoveFromPartitions.clear();
+    } while (run);
+
+    /// II. Create the new states.
+
+    Map<Set<State>, int> groupIds = {};
+    for (Set<State> partition in partitions) {
+      groupIds[partition] = groupIds.length;
+    }
+
+    /// Points each state to its partition.
+    Map<State, Set<State>> groupings = {
+      for (State state in states)
+        for (Set<State> partition in partitions)
+          if (partition.contains(state)) state: partition,
+    };
+
+    Map<String, String> renames = <String, String>{};
+
+    /// Points each partition to its new state.
+    Map<Set<State>, State> newStateMap = <Set<State>, State>{
+      for (Set<State> partition in partitions) //
+        partition: State(
+          groupIds[partition]!,
+          renameStates ? renames[partition.label] ??= "q${renames.length}" : partition.label,
+        ),
+    };
+
+    /// III. Create the new transitions.
+    Map<(State, Letter), State> newTransitions = <(State, Letter), State>{
+      for (var ((State source, Letter letter), State target) in transitions.pairs)
+        (newStateMap[groupings[source]]!, letter): newStateMap[groupings[target]]!,
+    };
+
+    /// IV. Complete the different sets.
+
+    Set<State> newStates = newStateMap.values.toSet();
+    Set<Letter> newAlphabet = alphabet;
+    State newStart = newStateMap[groupings[start]]!;
+    Set<State> newAccepting = {for (State state in accepting) newStateMap[groupings[state]]!};
+
+    return DFA(newStates, newAlphabet, newTransitions, newStart, newAccepting);
+  }
 
   bool accepts(String string) {
     State state = start;
@@ -186,9 +290,9 @@ final class DeterministicFiniteAutomata {
   }
 }
 
-final class NonDeterministicFiniteAutomata {
-  const NonDeterministicFiniteAutomata(this.states, this.alphabet, this.transitions, this.start, this.accepting);
-  factory NonDeterministicFiniteAutomata.fromRegularExpression(
+final class NFA {
+  const NFA(this.states, this.alphabet, this.transitions, this.start, this.accepting);
+  factory NFA.fromRegularExpression(
     RegularExpression regularExpression, {
     bool renameStates = false,
   }) {
@@ -232,7 +336,7 @@ final class NonDeterministicFiniteAutomata {
           .forEach(transitions[(originState, right.delinearized)]!.add);
     }
 
-    return NonDeterministicFiniteAutomata(states, alphabet, transitions, start, accepting);
+    return NFA(states, alphabet, transitions, start, accepting);
   }
 
   /// Σ
@@ -381,7 +485,7 @@ extension DeterministicFiniteAutomataCreator on (
   State start,
   Set<State> accepting,
 ) {
-  DeterministicFiniteAutomata get automata => DeterministicFiniteAutomata($1, $2, $3, $4, $5);
+  DFA get automata => DFA($1, $2, $3, $4, $5);
 }
 
 extension NonDeterministicFiniteAutomataCreator on (
@@ -391,5 +495,5 @@ extension NonDeterministicFiniteAutomataCreator on (
   State start,
   Set<State> accepting,
 ) {
-  NonDeterministicFiniteAutomata get automata => NonDeterministicFiniteAutomata($1, $2, $3, $4, $5);
+  NFA get automata => NFA($1, $2, $3, $4, $5);
 }

@@ -1,14 +1,27 @@
 sealed class RegularExpression {
   const RegularExpression();
 
+  /// Returns all the possible [Letter]s in which the [RegularExpression] can start.
   Iterable<Letter> get prefixes;
+
+  /// Returns all the possible [Letter]s in which the [RegularExpression] can end.
   Iterable<Letter> get suffixes;
+
+  /// Returns all the pairs of [Letter]s that are adjacent to each other.
+  /// Formally, this is the set `F(e')` for the local language `e'`.
   Iterable<(Letter, Letter)> get pairs;
+
+  /// Recursively iterates over all the [RegularExpression], returning all the [Letter]s.
   Iterable<Letter> get letters;
 
+  /// Returns a [bool] indicating [RegularExpression] if the [RegularExpression]
+  /// accepts the empty string λ or ε.
   bool get isNullable;
 
+  /// Returns a copy of the [RegularExpression] with all the [Letter]s being "linearized"
+  /// as required by the Glushkov Construction Algorithm.
   RegularExpression get linearized => _linearized(1).$2;
+
   (int, RegularExpression) _linearized(int start);
 }
 
