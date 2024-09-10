@@ -33,20 +33,23 @@ const Letter y = Letter("y");
 const Letter z = Letter("z");
 const Letter zero = Letter("0");
 const Letter one = Letter("1");
+const Epsilon epsilon = Epsilon();
 
 void main(List<String> arguments) {
   // A regular expression that accepts all strings that contain the substring '001'.
-  var regex = (zero | one).star & (zero & zero & one) & (zero | one).star;
-  var nfa = NFA.fromRegularExpression(regex, renameStates: true);
+  var regex = (a & b).star & ((b & c) | (a & c & b)).plus;
+  var nfaE = NFA.fromRegularExpression(regex, renameStates: true);
+  var nfa = nfaE.removeEpsilonTransitions();
   var dfa = DFA.fromNFA(nfa, renameStates: true);
   var minimalDfa = dfa.minimized(renameStates: true);
 
   /// It works! That's awesome.
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot());
   File("nfa.dot").writeAsStringSync(nfa.dot());
   File("dfa.dot").writeAsStringSync(dfa.dot());
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
 
-  print(dfa.accepts("0101010110010101"));
+  print(dfa.accepts("ababbcbcbc"));
 }
 
 void test1() {
@@ -108,6 +111,29 @@ void test2() {
 
   print(automata.generateTransitionTable());
   File("automaton.dot").writeAsStringSync(automata.dot());
+}
+
+void test3() {
+  var state0 = const State(0, "q0");
+  var state1 = const State(1, "q1");
+  var state2 = const State(2, "q2");
+
+  var states = {state0, state1, state2};
+  var alphabet = {a, b};
+  var transitions = {
+    (state0, a): {state1},
+    (state1, epsilon): {state2},
+    (state2, b): {state2},
+  };
+  var start = state0;
+  var accepts = {state2};
+
+  var nfaE = NFA(states, alphabet, transitions, start, accepts);
+  var nfa = nfaE.removeEpsilonTransitions();
+  var dfa = DFA.fromNFA(nfa, renameStates: true);
+  var minimalDfa = dfa.minimized(renameStates: true);
+
+  print(minimalDfa.generateTransitionTable());
 }
 
 extension<T> on Set<T> {

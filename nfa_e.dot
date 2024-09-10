@@ -12,16 +12,16 @@ digraph G {
   n__ -> 0;
   0 -> 1 [label="a"];
   0 -> 5 [label="a"];
-  2 -> 1 [label="a"];
-  2 -> 5 [label="a"];
-  4 -> 5 [label="a"];
-  7 -> 5 [label="a"];
   0 -> 3 [label="b"];
   1 -> 2 [label="b"];
+  2 -> 1 [label="a"];
+  2 -> 5 [label="a"];
   2 -> 3 [label="b"];
-  4 -> 3 [label="b"];
-  6 -> 7 [label="b"];
-  7 -> 3 [label="b"];
   3 -> 4 [label="c"];
+  4 -> 5 [label="a"];
+  4 -> 3 [label="b"];
   5 -> 6 [label="c"];
+  6 -> 7 [label="b"];
+  7 -> 5 [label="a"];
+  7 -> 3 [label="b"];
 }

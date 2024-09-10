@@ -31,6 +31,8 @@ final class DFA {
     bool renameStates = false,
     bool minimized = false,
   }) {
+    automaton = automaton.removeEpsilonTransitions();
+
     State start = automaton.start;
     Set<State> states = <State>{start};
     Set<Letter> alphabet = automaton.alphabet;
@@ -103,6 +105,7 @@ final class DFA {
       },
       {...accepting},
     };
+    partitions.removeWhere((Set<State> partition) => partition.isEmpty);
 
     /// I. Figure out the grouping of the new states.
     /// Since we should not modify the set(s) we are iterating over, we need to create a temporary set.
@@ -285,7 +288,7 @@ final class DFA {
 
     buffer.writeln("  n__ -> ${start.id};");
     for (var ((State source, Letter letter), State target) in transitions.pairs) {
-      buffer.writeln('  ${source.id} -> ${target.id} [label="${letter.rawLetter}"];');
+      buffer.writeln('  ${source.id} -> ${target.id} [label="${letter.delinearized}"];');
     }
 
     buffer.writeln("}");
@@ -311,8 +314,15 @@ final class NFA {
     Set<State> states = Set<State>.identity()..add(start);
     Set<State> accepting = Set<State>.identity();
 
+    /// If the regular expression is nullable, the start state is accepting.
+    /// (This is a bug in the original implementation.)
+    if (regularExpression.isNullable) {
+      accepting.add(start);
+    }
+
     for (Letter letter in linearized.letters) {
-      State state = State(letter.id!, renameStates ? "q${letter.id}" : letter.toString());
+      String stateName = renameStates ? "q${letter.id}" : letter.toString();
+      State state = State(letter.id!, stateName);
 
       states.add(state);
       if (suffixes.contains(letter)) {
@@ -358,7 +368,61 @@ final class NFA {
   /// F
   final Set<State> accepting;
 
+  NFA removeEpsilonTransitions() {
+    /// 1. Compute the ε-closure of each state.
+    ///   Definition: the ε-closure of a state q is the set of all states
+    ///          that can be reached from q by following only ε-transitions.
+    ///   It is described as ε(q) = {q} ∪ {p | p ∈ ε(δ(q, ε))}.
+    Map<State, Set<State>> epsilonClosure = <State, Set<State>>{
+      for (State state in states) state: Set<State>.identity()..add(state),
+    };
+
+    for (State state in states) {
+      Queue<State> queue = Queue<State>()..add(state);
+
+      while (queue.isNotEmpty) {
+        State currentState = queue.removeFirst();
+
+        if (epsilonClosure[state] case Set<State> closure) {
+          if (transitions[(currentState, const Epsilon())] case Set<State> nextStates) {
+            queue.addAll(nextStates.difference(closure));
+            closure.addAll(nextStates);
+          }
+        }
+      }
+    }
+
+    /// 2. The new alphabet, Σ' = Σ \ {ε}.
+    Set<Letter> newAlphabet = alphabet.difference({const Epsilon()});
+
+    /// 3. Compute the new transitions, δ'.
+    Map<(State, Letter), Set<State>> newTransitions = {
+      for (Letter letter in alphabet.where((Letter letter) => letter is! Epsilon))
+        for (State state in states)
+
+          /// ∀α ∈ Σ δ'(q, α) = ε(δ(ε(q), α))
+          (state, letter): epsilonClosure[state]! //
+              .expand((state) => transitions[(state, letter)] ?? <State>{})
+              .expand((state) => epsilonClosure[state]!)
+              .toSet(),
+    }..removeWhere((key, value) => value.isEmpty);
+
+    /// 4. Compute the new accepting states.
+    ///   A state q is accepting if ε(q) ∩ F ≠ ∅.
+    Set<State> newAccepting = <State>{
+      for (State state in states)
+        if (epsilonClosure[state]!.intersection(accepting).isNotEmpty) //
+          state,
+    };
+
+    return NFA(states, newAlphabet, newTransitions, start, newAccepting);
+  }
+
   bool accepts(String string) {
+    if (alphabet.contains(const Epsilon())) {
+      return removeEpsilonTransitions().accepts(string);
+    }
+
     Set<State> states = <State>{start};
 
     for (String char in string.split("")) {
@@ -453,7 +517,7 @@ final class NFA {
     buffer.writeln("  n__ -> ${start.id};");
     for (var ((State source, Letter letter), Set<State> targets) in transitions.pairs) {
       for (State target in targets) {
-        buffer.writeln('  ${source.id} -> ${target.id} [label="${letter.rawLetter}"];');
+        buffer.writeln('  ${source.id} -> ${target.id} [label="${letter.delinearized}"];');
       }
     }
 

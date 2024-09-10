@@ -26,7 +26,8 @@ sealed class RegularExpression {
 }
 
 class Letter extends RegularExpression {
-  const Letter(this.rawLetter, [this.id]) : assert(rawLetter.length == 1 || rawLetter.length == 0);
+  const Letter(this.rawLetter, [this.id]) : assert(rawLetter.length == 1);
+  const Letter._unrestricted(this.rawLetter, [this.id]);
 
   final String rawLetter;
   final int? id;
@@ -46,7 +47,7 @@ class Letter extends RegularExpression {
   }
 
   @override
-  bool get isNullable => rawLetter.isEmpty;
+  bool get isNullable => false;
 
   @override
   String toString() {
@@ -63,7 +64,7 @@ class Letter extends RegularExpression {
   @override
   bool operator ==(Object other) {
     if (other is Letter) {
-      return this.rawLetter == other.rawLetter;
+      return rawLetter == other.rawLetter;
     }
 
     return false;
@@ -71,6 +72,27 @@ class Letter extends RegularExpression {
 
   @override
   int get hashCode => rawLetter.hashCode;
+}
+
+class Epsilon extends Letter {
+  const Epsilon([int? id]) : super._unrestricted("", id);
+
+  @override
+  String toString() => "ε";
+
+  @override
+  Epsilon get delinearized => const Epsilon();
+
+  @override
+  (int, RegularExpression) _linearized(int start) {
+    return (start + 1, Epsilon(start));
+  }
+
+  @override
+  bool operator ==(Object other) => other is Epsilon;
+
+  @override
+  int get hashCode => ().hashCode;
 }
 
 class Choice extends RegularExpression {
@@ -99,8 +121,8 @@ class Choice extends RegularExpression {
 
   @override
   Iterable<Letter> get letters sync* {
-    yield* this.left.letters;
-    yield* this.right.letters;
+    yield* left.letters;
+    yield* right.letters;
   }
 
   @override
@@ -153,8 +175,8 @@ class Concatenation extends RegularExpression {
 
   @override
   Iterable<Letter> get letters sync* {
-    yield* this.left.letters;
-    yield* this.right.letters;
+    yield* left.letters;
+    yield* right.letters;
   }
 
   @override
@@ -197,7 +219,7 @@ class Optional extends RegularExpression {
 
   @override
   (int, RegularExpression) _linearized(int start) {
-    var (int end, RegularExpression left) = this.expression._linearized(start);
+    var (int end, RegularExpression left) = expression._linearized(start);
 
     return (end, Optional(left));
   }
@@ -228,7 +250,7 @@ class KleeneStar extends RegularExpression {
 
   @override
   Iterable<Letter> get letters sync* {
-    yield* this.expression.letters;
+    yield* expression.letters;
   }
 
   @override
@@ -239,9 +261,51 @@ class KleeneStar extends RegularExpression {
 
   @override
   (int, RegularExpression) _linearized(int start) {
-    var (int end, RegularExpression left) = this.expression._linearized(start);
+    var (int end, RegularExpression left) = expression._linearized(start);
 
     return (end, KleeneStar(left));
+  }
+}
+
+class KleenePlus extends RegularExpression {
+  const KleenePlus(this.expression);
+
+  final RegularExpression expression;
+
+  @override
+  Iterable<Letter> get prefixes => expression.prefixes;
+
+  @override
+  Iterable<Letter> get suffixes => expression.suffixes;
+
+  @override
+  Iterable<(Letter, Letter)> get pairs sync* {
+    yield* expression.pairs;
+
+    /// Since we can repeat ourselves, we can also pair the prefixes and suffixes of the expression.
+    for (Letter suffix in expression.suffixes) {
+      for (Letter prefix in expression.prefixes) {
+        yield (suffix, prefix);
+      }
+    }
+  }
+
+  @override
+  Iterable<Letter> get letters sync* {
+    yield* expression.letters;
+  }
+
+  @override
+  bool get isNullable => expression.isNullable;
+
+  @override
+  String toString() => "${expression.toString().parenthesize}+";
+
+  @override
+  (int, RegularExpression) _linearized(int start) {
+    var (int end, RegularExpression left) = expression._linearized(start);
+
+    return (end, KleenePlus(left));
   }
 }
 
@@ -249,6 +313,7 @@ extension RegularExpressionExtension on RegularExpression {
   RegularExpression operator |(RegularExpression other) => Choice(this, other);
   RegularExpression operator &(RegularExpression other) => Concatenation(this, other);
   RegularExpression get star => KleeneStar(this);
+  RegularExpression get plus => KleenePlus(this);
   RegularExpression get optional => Optional(this);
 }
 
@@ -257,7 +322,7 @@ extension StringExtension on String {
 }
 
 extension on String {
-  String get parenthesize => switch (this.split("")) {
+  String get parenthesize => switch (split("")) {
         ["(", ..., ")"] => this,
         _ => "($this)",
       };
