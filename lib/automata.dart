@@ -54,6 +54,10 @@ final class DFA {
             .expand((State from) => automaton.transitions[(from, letter)] ?? <State>{})
             .toSet();
 
+        if (nextStates.isEmpty) {
+          continue;
+        }
+
         String toLabel = renameStates ? (renames[nextStates.label] ??= "q${renames.length}") : nextStates.label;
         int toId = stateCounter[toLabel] ??= stateCounter.length;
         State toState = State(toId, toLabel);
