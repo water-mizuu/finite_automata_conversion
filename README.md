@@ -21,6 +21,7 @@ algorithms for the purpose of study. Specifically, it implements:
 ![NFA-SVG](https://raw.githubusercontent.com/water-mizuu/glushkov_construction/master/nfa.svg)
 
 #### III. NFA to DFA Conversion
+- This step also removes ε-transitions from the NFA.
 - Through the program, the resulting DFA with renamed states is:
 ![DFA-SVG](https://raw.githubusercontent.com/water-mizuu/glushkov_construction/master/dfa.svg)
 
