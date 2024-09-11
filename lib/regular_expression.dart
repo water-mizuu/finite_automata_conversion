@@ -95,6 +95,8 @@ class Epsilon extends Letter {
   int get hashCode => ().hashCode;
 }
 
+const Epsilon epsilon = Epsilon();
+
 class Choice extends RegularExpression {
   const Choice(this.left, this.right);
 

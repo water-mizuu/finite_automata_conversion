@@ -384,7 +384,7 @@ final class NFA {
         State currentState = queue.removeFirst();
 
         if (epsilonClosure[state] case Set<State> closure) {
-          if (transitions[(currentState, const Epsilon())] case Set<State> nextStates) {
+          if (transitions[(currentState, epsilon)] case Set<State> nextStates) {
             queue.addAll(nextStates.difference(closure));
             closure.addAll(nextStates);
           }
@@ -393,7 +393,7 @@ final class NFA {
     }
 
     /// 2. The new alphabet, Σ' = Σ \ {ε}.
-    Set<Letter> newAlphabet = alphabet.difference({const Epsilon()});
+    Set<Letter> newAlphabet = alphabet.difference({epsilon});
 
     /// 3. Compute the new transitions, δ'.
     Map<(State, Letter), Set<State>> newTransitions = {
@@ -419,7 +419,7 @@ final class NFA {
   }
 
   bool accepts(String string) {
-    if (alphabet.contains(const Epsilon())) {
+    if (alphabet.contains(epsilon)) {
       return removeEpsilonTransitions().accepts(string);
     }
 

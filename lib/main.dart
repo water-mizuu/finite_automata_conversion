@@ -36,6 +36,10 @@ const Letter one = Letter("1");
 const Epsilon epsilon = Epsilon();
 
 void main(List<String> arguments) {
+  test0();
+}
+
+void test0() {
   // A regular expression that accepts all strings that contain the substring '001'.
   var regex = (a & b).star & ((b & c) | (a & c & b)).plus;
   var nfaE = NFA.fromRegularExpression(regex, renameStates: true);
@@ -49,7 +53,7 @@ void main(List<String> arguments) {
   File("dfa.dot").writeAsStringSync(dfa.dot());
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
 
-  print(dfa.accepts("ababbcbcbc"));
+  print(dfa.accepts("ababababababbc"));
 }
 
 void test1() {
@@ -134,6 +138,36 @@ void test3() {
   var minimalDfa = dfa.minimized(renameStates: true);
 
   print(minimalDfa.generateTransitionTable());
+}
+
+void test4() {
+  const stateA = State(0, "A");
+  const stateB = State(1, "B");
+  const stateC = State(2, "C");
+  const stateD = State(3, "D");
+  const stateE = State(4, "E");
+
+  var states = {stateA, stateB, stateC, stateD, stateE};
+  var alphabet = {a, b, c};
+  var transitions = {
+    (stateA, a): stateB,
+    (stateA, b): stateD,
+    (stateB, b): stateA,
+    (stateB, c): stateC,
+    (stateC, b): stateE,
+    (stateD, c): stateE,
+    (stateE, a): stateB,
+    (stateE, b): stateD,
+  };
+  var start = stateA;
+  var accepting = {stateE};
+
+  var dfa = DFA(states, alphabet, transitions, start, accepting);
+  var minimalDfa = dfa.minimized(renameStates: true);
+
+  print(dfa.accepts("acbbcacbbcbcbcbcbcacbacb"));
+  File("dfa.dot").writeAsStringSync(dfa.dot());
+  File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
 }
 
 extension<T> on Set<T> {
