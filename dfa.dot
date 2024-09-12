@@ -1,14 +1,14 @@
 digraph G {
   rankdir=LR;
   n__ [label="" shape=none width=.0];
-  0 [shape=circle label="^"];
-  1 [shape=circle label="a[1], a[5]"];
-  2 [shape=circle label="b[3]"];
-  3 [shape=circle label="b[2]"];
-  4 [shape=circle label="c[6]"];
-  5 [shape=doublecircle label="c[4]"];
-  6 [shape=doublecircle label="b[7]"];
-  7 [shape=circle label="a[5]"];
+  0 [shape=circle label="q0"];
+  1 [shape=circle label="q1"];
+  2 [shape=circle label="q2"];
+  3 [shape=circle label="q3"];
+  4 [shape=circle label="q4"];
+  5 [shape=doublecircle label="q5"];
+  6 [shape=doublecircle label="q6"];
+  7 [shape=circle label="q7"];
   n__ -> 0;
   0 -> 1 [label="a"];
   0 -> 2 [label="b"];

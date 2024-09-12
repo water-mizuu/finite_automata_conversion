@@ -43,10 +43,10 @@ void test0() {
   // A regular expression that accepts all strings that contain the substring '001'.
   // (ab)*((bc),(acb))+
   var regex = (a & b).star & ((b & c) | (a & c & b)).plus;
-  var nfaE = NFA.fromRegularExpression(regex);
+  var nfaE = NFA.fromRegularExpression(regex, renameStates: true);
   var nfa = nfaE.removeEpsilonTransitions();
-  var dfa = DFA.fromNFA(nfa);
-  var minimalDfa = dfa.minimized();
+  var dfa = DFA.fromNFA(nfa, renameStates: true);
+  var minimalDfa = dfa.minimized(renameStates: true);
 
   /// It works! That's awesome
   File("nfa_e.dot").writeAsStringSync(nfaE.dot());
