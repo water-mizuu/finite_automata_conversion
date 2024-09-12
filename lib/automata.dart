@@ -112,6 +112,7 @@ final class DFA {
     Set<Set<State>> newPartitions = <Set<State>>{};
     Map<Set<State>, Set<State>> toRemoveFromPartitions = <Set<State>, Set<State>>{};
     bool run = false;
+
     do {
       run = false;
 
@@ -152,6 +153,8 @@ final class DFA {
       newPartitions.clear();
       toRemoveFromPartitions.clear();
     } while (run);
+
+    print(partitions);
 
     /// II. Create the new states.
 
@@ -359,7 +362,7 @@ final class NFA {
   /// Q
   final Set<Letter> alphabet;
 
-  /// δ
+  /// δ : Q × Σ --> Q
   final Map<(State, Letter), Set<State>> transitions;
 
   /// q₀
