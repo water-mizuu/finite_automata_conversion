@@ -36,17 +36,17 @@ const Letter one = Letter("1");
 const Epsilon epsilon = Epsilon();
 
 void main(List<String> arguments) {
-  test4();
+  test0();
 }
 
 void test0() {
   // A regular expression that accepts all strings that contain the substring '001'.
   // (ab)*((bc),(acb))+
   var regex = (a & b).star & ((b & c) | (a & c & b)).plus;
-  var nfaE = NFA.fromRegularExpression(regex, renameStates: true);
+  var nfaE = NFA.fromRegularExpression(regex);
   var nfa = nfaE.removeEpsilonTransitions();
-  var dfa = DFA.fromNFA(nfa, renameStates: true);
-  var minimalDfa = dfa.minimized(renameStates: true);
+  var dfa = DFA.fromNFA(nfa);
+  var minimalDfa = dfa.minimized();
 
   /// It works! That's awesome
   File("nfa_e.dot").writeAsStringSync(nfaE.dot());
@@ -135,7 +135,7 @@ void test3() {
 
   var nfaE = NFA(states, alphabet, transitions, start, accepts);
   var nfa = nfaE.removeEpsilonTransitions();
-  var dfa = DFA.fromNFA(nfa, renameStates: true);
+  var dfa = DFA.fromNFA(nfa);
   var minimalDfa = dfa.minimized(renameStates: true);
 
   print(minimalDfa.generateTransitionTable());
@@ -147,8 +147,9 @@ void test4() {
   const stateC = State(2, "q2");
   const stateD = State(3, "q3");
   const stateE = State(4, "q4");
+  const stateF = State(5, "q5");
 
-  var states = {stateA, stateB, stateC, stateD, stateE};
+  var states = {stateA, stateB, stateC, stateD, stateE, stateF};
   var alphabet = {a, b, c};
   var transitions = {
     (stateA, a): stateB,
@@ -157,8 +158,9 @@ void test4() {
     (stateB, c): stateC,
     (stateC, b): stateE,
     (stateD, c): stateE,
-    (stateE, a): stateB,
+    (stateE, a): stateF,
     (stateE, b): stateD,
+    (stateF, c): stateC,
   };
   var start = stateA;
   var accepting = {stateE};
