@@ -2,13 +2,13 @@
 
 import "dart:io";
 
-import "package:glushkov_construction/automata.dart";
-import "package:glushkov_construction/regular_expression.dart";
+import "package:finite_automata_conversion/automata.dart";
+import "package:finite_automata_conversion/regular_expression.dart";
 
 const Letter a = Letter("a");
 const Letter b = Letter("b");
 const Letter c = Letter("c");
-const Letter d = Letter("b");
+const Letter d = Letter("d");
 const Letter e = Letter("e");
 const Letter f = Letter("f");
 const Letter g = Letter("g");
@@ -36,17 +36,17 @@ const Letter one = Letter("1");
 const Epsilon epsilon = Epsilon();
 
 void main(List<String> arguments) {
-  test0();
+  test5();
 }
 
 void test0() {
   // A regular expression that accepts all strings that contain the substring '001'.
   // (ab)*((bc),(acb))+
-  var regex = (a & b).star & ((b & c) | (a & c & b)).plus;
-  var nfaE = NFA.fromRegularExpression(regex, renameStates: true);
-  var nfa = nfaE.removeEpsilonTransitions();
-  var dfa = DFA.fromNFA(nfa, renameStates: true);
-  var minimalDfa = dfa.minimized(renameStates: true);
+  RegularExpression regex = (a & b).star & ((b & c) | (a & c & b)).plus;
+  NFA nfaE = NFA.fromRegularExpression(regex);
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = DFA.fromNFA(nfa);
+  DFA minimalDfa = dfa.minimized();
 
   /// It works! That's awesome
   File("nfa_e.dot").writeAsStringSync(nfaE.dot());
@@ -58,15 +58,15 @@ void test0() {
 }
 
 void test1() {
-  var states = {
+  Set<State> states = <State>{
     const State(0, "A"),
     const State(1, "B"),
     const State(2, "C"),
     const State(3, "D"),
     const State(4, "E"),
   };
-  var alphabet = {zero, one};
-  var transitions = {
+  Set<Letter> alphabet = <Letter>{zero, one};
+  Map<(State, Letter), State> transitions = <(State, Letter), State>{
     (states[0], zero): states[1],
     (states[0], one): states[2],
     (states[1], zero): states[1],
@@ -78,16 +78,16 @@ void test1() {
     (states[4], zero): states[1],
     (states[4], one): states[2],
   };
-  var start = states[0];
-  var accepting = {states[4]};
-  var dfa = (states, alphabet, transitions, start, accepting).automata.minimized(renameStates: true);
+  State start = states[0];
+  Set<State> accepting = <State>{states[4]};
+  DFA dfa = (states, alphabet, transitions, start, accepting).automata.minimized();
 
   print(dfa.generateTransitionTable());
   File("automaton.dot").writeAsStringSync(dfa.dot());
 }
 
 void test2() {
-  var states = {
+  Map<String, State> states = <String, State>{
     "A": const State(0, "A"),
     "B": const State(1, "B"),
     "C": const State(2, "C"),
@@ -95,8 +95,8 @@ void test2() {
     "E": const State(4, "E"),
     "F": const State(5, "F"),
   };
-  var alphabet = {zero, one};
-  var transitions = {
+  Set<Letter> alphabet = <Letter>{zero, one};
+  Map<(State, Letter), State> transitions = <(State, Letter), State>{
     (states["A"]!, zero): states["B"]!,
     (states["A"]!, one): states["C"]!,
     (states["B"]!, zero): states["A"]!,
@@ -110,48 +110,48 @@ void test2() {
     (states["F"]!, zero): states["F"]!,
     (states["F"]!, one): states["F"]!,
   };
-  var start = states["A"]!;
-  var accepting = {states["D"]!, states["C"]!, states["E"]!};
-  var automata = (states.values.toSet(), alphabet, transitions, start, accepting).automata.minimized();
+  State start = states["A"]!;
+  Set<State> accepting = <State>{states["D"]!, states["C"]!, states["E"]!};
+  DFA automata = (states.values.toSet(), alphabet, transitions, start, accepting).automata.minimized();
 
   print(automata.generateTransitionTable());
   File("automaton.dot").writeAsStringSync(automata.dot());
 }
 
 void test3() {
-  var state0 = const State(0, "q0");
-  var state1 = const State(1, "q1");
-  var state2 = const State(2, "q2");
+  State state0 = const State(0, "q0");
+  State state1 = const State(1, "q1");
+  State state2 = const State(2, "q2");
 
-  var states = {state0, state1, state2};
-  var alphabet = {a, b};
-  var transitions = {
-    (state0, a): {state1},
-    (state1, epsilon): {state2},
-    (state2, b): {state2},
+  Set<State> states = <State>{state0, state1, state2};
+  Set<Letter> alphabet = <Letter>{a, b};
+  Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
+    (state0, a): <State>{state1},
+    (state1, epsilon): <State>{state2},
+    (state2, b): <State>{state2},
   };
-  var start = state0;
-  var accepts = {state2};
+  State start = state0;
+  Set<State> accepts = <State>{state2};
 
-  var nfaE = NFA(states, alphabet, transitions, start, accepts);
-  var nfa = nfaE.removeEpsilonTransitions();
-  var dfa = DFA.fromNFA(nfa);
-  var minimalDfa = dfa.minimized(renameStates: true);
+  NFA nfaE = NFA(states, alphabet, transitions, start, accepts);
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = DFA.fromNFA(nfa);
+  DFA minimalDfa = dfa.minimized();
 
   print(minimalDfa.generateTransitionTable());
 }
 
 void test4() {
-  const stateA = State(0, "q0");
-  const stateB = State(1, "q1");
-  const stateC = State(2, "q2");
-  const stateD = State(3, "q3");
-  const stateE = State(4, "q4");
-  const stateF = State(5, "q5");
+  const State stateA = State(0, "q0");
+  const State stateB = State(1, "q1");
+  const State stateC = State(2, "q2");
+  const State stateD = State(3, "q3");
+  const State stateE = State(4, "q4");
+  const State stateF = State(5, "q5");
 
-  var states = {stateA, stateB, stateC, stateD, stateE, stateF};
-  var alphabet = {a, b, c};
-  var transitions = {
+  Set<State> states = <State>{stateA, stateB, stateC, stateD, stateE, stateF};
+  Set<Letter> alphabet = <Letter>{a, b, c};
+  Map<(State, Letter), State> transitions = <(State, Letter), State>{
     (stateA, a): stateB,
     (stateA, b): stateD,
     (stateB, b): stateA,
@@ -162,15 +162,32 @@ void test4() {
     (stateE, b): stateD,
     (stateF, c): stateC,
   };
-  var start = stateA;
-  var accepting = {stateE};
+  State start = stateA;
+  Set<State> accepting = <State>{stateE};
 
-  var dfa = DFA(states, alphabet, transitions, start, accepting);
-  var minimalDfa = dfa.minimized();
+  DFA dfa = DFA(states, alphabet, transitions, start, accepting);
+  DFA minimalDfa = dfa.minimized();
 
   print(dfa.accepts("acbbcacbbcbcbcbcbcacbacb"));
   File("dfa.dot").writeAsStringSync(dfa.dot());
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
+}
+
+void test5() {
+  RegularExpression regex = (a & b).star & ((b & c) | (a & c & b)).plus;
+
+  NFA nfaE = NFA.fromThompsonConstruction(regex);
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = DFA.fromNFA(nfa);
+  DFA dfaM = dfa.minimized();
+
+  print(nfa.accepts("abababcbdcbdbdcb"));
+  print(nfa.accepts("abababcbdcbdbdcb"));
+
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot());
+  File("nfa.dot").writeAsStringSync(nfa.dot());
+  File("dfa.dot").writeAsStringSync(dfa.dot());
+  File("dfa_m.dot").writeAsStringSync(dfaM.dot());
 }
 
 extension<T> on Set<T> {

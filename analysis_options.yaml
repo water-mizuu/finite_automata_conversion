@@ -1,4 +1,7 @@
 analyzer:
+  enable-experiment:
+    - augmentations
+    - macros
   language:
     strict-inference: true
     strict-raw-types: true
@@ -14,7 +17,7 @@ analyzer:
     body_might_complete_normally_nullable: ignore
     unrelated_type_equality_checks: warning
     unnecessary_cast: ignore
-    always_specify_types: ignore
+    # always_specify_types: ignore
     avoid_equals_and_hash_code_on_mutable_classes: ignore
 linter:
   rules:
