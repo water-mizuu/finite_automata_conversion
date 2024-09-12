@@ -1,15 +1,16 @@
-# Glushkov Construction Algorithm
+# Finite Automata Conversion
 
 A command-line program that implements Finite Automata related
 algorithms for the purpose of study. Specifically, it implements:
-  1. Glushkov Construction Algorithm (Regular Expression to NFA)
-  2. NFA to DFA Conversion Algorithm
-  3. DFA Minimization Algorithm
+  - Regular Expression structure
+  - Regular Expression to NFA Conversion Algorithm
+  - NFA to DFA Conversion Algorithm
+  - DFA Minimization Algorithm
 
 
 ---
 
-## Example:
+## Example (Glushkov Construction):
 
 #### I. Regular Expression
 `e = (0 | 1)*001(0 | 1)*`
