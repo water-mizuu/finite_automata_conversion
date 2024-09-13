@@ -33,7 +33,6 @@ const Letter y = Letter("y");
 const Letter z = Letter("z");
 const Letter zero = Letter("0");
 const Letter one = Letter("1");
-const Epsilon epsilon = Epsilon();
 
 void main(List<String> arguments) {
   test5();
@@ -174,7 +173,7 @@ void test4() {
 }
 
 void test5() {
-  RegularExpression regex = (a & b).star & ((b & c) | (a & c & b)).plus;
+  RegularExpression regex = ((a & b).star & ((b & c) | (a & c & b))).plus;
 
   NFA nfaE = NFA.fromThompsonConstruction(regex);
   NFA nfa = nfaE.removeEpsilonTransitions();

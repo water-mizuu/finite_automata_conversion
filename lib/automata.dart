@@ -2,6 +2,8 @@ import "dart:collection";
 
 import "package:finite_automata_conversion/regular_expression.dart";
 
+enum StateName { original, renamed, blank }
+
 final class State {
   const State(this.id, this.label);
 
@@ -271,11 +273,16 @@ final class DFA {
         .join("\n");
   }
 
-  String dot({bool renameStates = true}) {
+  String dot({StateName stateName = StateName.blank}) {
     StringBuffer buffer = StringBuffer("digraph G {\n");
-    Set<(bool, State)> states = renameStates //
-        ? this.states.map((State state) => (accepting.contains(state), State(state.id, "q${state.id}"))).toSet()
-        : this.states.map((State state) => (accepting.contains(state), state)).toSet();
+    Set<(bool, State)> states = <(bool, State)>{
+      for (State state in this.states)
+        switch (stateName) {
+          StateName.original => (accepting.contains(state), state),
+          StateName.renamed => (accepting.contains(state), State(state.id, "q${state.id}")),
+          StateName.blank => (accepting.contains(state), State(state.id, ""))
+        },
+    };
 
     buffer.writeln("  rankdir=LR;");
     buffer.writeln('  n__ [label="" shape=none width=.0];');
@@ -646,11 +653,16 @@ final class NFA {
         .join("\n");
   }
 
-  String dot({bool renameStates = true}) {
+  String dot({StateName stateName = StateName.blank}) {
     StringBuffer buffer = StringBuffer("digraph G {\n");
-    Set<(bool, State)> states = renameStates //
-        ? this.states.map((State state) => (accepting.contains(state), State(state.id, "q${state.id}"))).toSet()
-        : this.states.map((State state) => (accepting.contains(state), state)).toSet();
+    Set<(bool, State)> states = <(bool, State)>{
+      for (State state in this.states)
+        switch (stateName) {
+          StateName.original => (accepting.contains(state), state),
+          StateName.renamed => (accepting.contains(state), State(state.id, "q${state.id}")),
+          StateName.blank => (accepting.contains(state), State(state.id, ""))
+        },
+    };
 
     buffer.writeln("  rankdir=LR;");
     buffer.writeln('  n__ [label="" shape=none width=.0];');
