@@ -173,10 +173,10 @@ void test4() {
 }
 
 void test5() {
-  RegularExpression regex = ((a & b).star & ((b & c) | (a & c & b))).plus;
+  RegularExpression regex = (a & (b & c | b & c)).star & ((b & c) | (a & c & b)).plus;
 
   NFA nfaE = NFA.fromThompsonConstruction(regex);
-  NFA nfa = nfaE.removeEpsilonTransitions();
+  NFA nfa = NFA.fromGlushkovConstruction(regex);
   DFA dfa = DFA.fromNFA(nfa);
   DFA dfaM = dfa.minimized();
 

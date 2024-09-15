@@ -6,13 +6,17 @@ digraph G {
   2 [shape=circle label=""];
   3 [shape=circle label=""];
   4 [shape=circle label=""];
+  5 [shape=circle label=""];
+  6 [shape=circle label=""];
   n__ -> 0;
   0 -> 2 [label="a"];
   0 -> 3 [label="b"];
-  2 -> 0 [label="b"];
-  2 -> 4 [label="c"];
+  2 -> 4 [label="b"];
+  2 -> 5 [label="c"];
   3 -> 1 [label="c"];
-  4 -> 1 [label="b"];
-  1 -> 2 [label="a"];
+  4 -> 0 [label="c"];
+  5 -> 1 [label="b"];
+  1 -> 6 [label="a"];
   1 -> 3 [label="b"];
+  6 -> 5 [label="c"];
 }
