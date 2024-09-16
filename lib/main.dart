@@ -226,7 +226,7 @@ void test7() {
 void test8() {
   // A regular expression that accepts all strings that contain the substring '001'.
   // (0|1)*001(0|1)*
-  RegularExpression regex = (zero | one).star & zero & zero & one & (zero | one).star;
+  RegularExpression regex = (zero | one).star & (zero & zero & one) & (zero | one).star;
   NFA nfaE = NFA.fromRegularExpression(regex);
   NFA nfa = nfaE.removeEpsilonTransitions();
   DFA dfa = DFA.fromNFA(nfa);

@@ -297,6 +297,11 @@ final class DFA {
         if (topologicalSorting.containsKey(source) && topologicalSorting.containsKey(target)) //
           (source, letter): target,
     };
+    Map<(State, State), Set<Letter>> transformedTransitions = <(State, State), Set<Letter>>{};
+    for (var ((State state, Letter letter), State target) in transitions.pairs) {
+      transformedTransitions.putIfAbsent((state, target), () => <Letter>{}).add(letter);
+    }
+
     buffer.writeln("  rankdir=LR;");
     buffer.writeln('  n__ [label="" shape=none width=.0];');
     for (var (bool accepting, State state) in states) {
@@ -315,8 +320,9 @@ final class DFA {
     }
 
     buffer.writeln("  n__ -> ${start.id};");
-    for (var ((State source, Letter letter), State target) in transitions.pairs) {
-      buffer.writeln('  ${source.id} -> ${target.id} [label="${letter.delinearized}"];');
+    for (var ((State source, State target), Set<Letter> letters) in transformedTransitions.pairs) {
+      buffer
+          .writeln('  ${source.id} -> ${target.id} [label="${letters.map((Letter v) => v.delinearized).join(", ")}"]');
     }
 
     buffer.writeln("}");
@@ -593,6 +599,13 @@ final class NFA {
               if (topologicalSorting.containsKey(target)) target,
           },
     };
+    Map<(State, State), Set<Letter>> transformedTransitions = <(State, State), Set<Letter>>{};
+    for (var ((State state, Letter letter), Set<State> targets) in transitions.pairs) {
+      for (State target in targets) {
+        transformedTransitions.putIfAbsent((state, target), () => <Letter>{}).add(letter);
+      }
+    }
+
     buffer.writeln("  rankdir=LR;");
     buffer.writeln('  n__ [label="" shape=none width=.0];');
     for (var (bool accepting, State state) in states) {
@@ -611,10 +624,9 @@ final class NFA {
     }
 
     buffer.writeln("  n__ -> ${start.id};");
-    for (var ((State source, Letter letter), Set<State> targets) in transitions.pairs) {
-      for (State target in targets) {
-        buffer.writeln('  ${source.id} -> ${target.id} [label="${letter.delinearized}"];');
-      }
+    for (var ((State source, State target), Set<Letter> letters) in transformedTransitions.pairs) {
+      buffer
+          .writeln('  ${source.id} -> ${target.id} [label="${letters.map((Letter v) => v.delinearized).join(", ")}"]');
     }
 
     buffer.writeln("}");
