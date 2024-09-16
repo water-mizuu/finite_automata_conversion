@@ -809,13 +809,3 @@ extension NonDeterministicFiniteAutomataCreator on (
 ) {
   NFA get automata => NFA($1, $2, $3, $4, $5);
 }
-
-extension on bool {
-  /// Logical implication.
-  /// The truth table is:
-  /// true  `>>` true  = true
-  /// true  `>>` false = false
-  /// false `>>` true  = true
-  /// false `>>` false = true
-  bool operator >>(bool other) => !this || other;
-}
