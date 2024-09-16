@@ -1,3 +1,4 @@
+// cspell: disable
 // ignore_for_file: unreachable_from_main
 
 import "dart:io";
@@ -35,7 +36,7 @@ const Letter zero = Letter("0");
 const Letter one = Letter("1");
 
 void main(List<String> arguments) {
-  test5();
+  test7();
 }
 
 void test0() {
@@ -183,10 +184,44 @@ void test5() {
   print(nfa.accepts("abababcbdcbdbdcb"));
   print(nfa.accepts("abababcbdcbdbdcb"));
 
-  File("nfa_e.dot").writeAsStringSync(nfaE.dot());
-  File("nfa.dot").writeAsStringSync(nfa.dot());
-  File("dfa.dot").writeAsStringSync(dfa.dot());
-  File("dfa_m.dot").writeAsStringSync(dfaM.dot());
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot(stateName: StateName.renamed));
+  File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
+  File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
+  File("dfa_m.dot").writeAsStringSync(dfaM.dot(stateName: StateName.renamed));
+}
+
+void test6() {
+  // Let regular expression be (0|(1(01*(00)*0)*1)*)*.
+  RegularExpression regex = (zero | (one & (zero & one.star & (zero & zero).star & zero).star & one).star).star;
+
+  NFA nfaE = NFA.fromThompsonConstruction(regex);
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = DFA.fromNFA(nfa);
+  DFA dfaM = dfa.minimized();
+
+  print(nfa.accepts("010000"));
+
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot(stateName: StateName.renamed));
+  File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
+  File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
+  File("dfa_m.dot").writeAsStringSync(dfaM.dot(stateName: StateName.renamed));
+}
+
+void test7() {
+  /// Let the regular expression be (ε|a*b)
+  RegularExpression regex = epsilon | a.star & b;
+
+  NFA nfaE = NFA.fromThompsonConstruction(regex);
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = DFA.fromNFA(nfa);
+  DFA dfaM = dfa.minimized();
+
+  print(nfa.accepts("ab"));
+
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot(stateName: StateName.renamed));
+  File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
+  File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
+  File("dfa_m.dot").writeAsStringSync(dfaM.dot(stateName: StateName.renamed));
 }
 
 extension<T> on Set<T> {
