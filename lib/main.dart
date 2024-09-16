@@ -36,13 +36,13 @@ const Letter zero = Letter("0");
 const Letter one = Letter("1");
 
 void main(List<String> arguments) {
-  test8();
+  test6();
 }
 
 void test0() {
   // (ab)*((bc),(acb))+
   RegularExpression regex = (a & b).star & ((b & c) | (a & c & b)).plus;
-  NFA nfaE = NFA.fromRegularExpression(regex);
+  NFA nfaE = NFA.fromThompsonConstruction(regex);
   NFA nfa = nfaE.removeEpsilonTransitions();
   DFA dfa = DFA.fromNFA(nfa);
   DFA minimalDfa = dfa.minimized();
@@ -238,7 +238,25 @@ void test8() {
   File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot(stateName: StateName.renamed));
 
-  print(dfa.accepts("ababababababbc"));
+  print(dfa.accepts("01010010101001010101010"));
+}
+
+void test9() {
+  // A regular expression that accepts all strings that contain the substring '001'.
+  // (0|1)*001(0|1)*
+  RegularExpression regex = (zero | one).star & (zero & zero & one) & (zero | one).star;
+  NFA nfaE = NFA.fromThompsonConstruction(regex);
+  NFA nfa = NFA.fromGlushkovConstruction(regex);
+  DFA dfa = DFA.fromNFA(nfa);
+  DFA minimalDfa = dfa.minimized();
+
+  /// It works! That's awesome
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot());
+  File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
+  File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
+  File("dfa_m.dot").writeAsStringSync(minimalDfa.dot(stateName: StateName.renamed));
+
+  print(dfa.accepts("01010010101001010101010"));
 }
 
 extension<T> on Set<T> {
