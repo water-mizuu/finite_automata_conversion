@@ -1,18 +1,9 @@
 digraph G {
   rankdir=LR;
   n__ [label="" shape=none width=.0];
-  4 [shape=circle label="q0"]
-  3 [shape=circle label="q1"]
-  1 [shape=circle label="q2"]
-  2 [shape=circle label="q3"]
-  1 [shape=doublecircle label="q4"]
-  n__ -> 4;
-  4 -> 3 [label="0"]
-  4 -> 1 [label="1"]
-  3 -> 3 [label="0"]
-  3 -> 1 [label="1"]
-  1 -> 2 [label="0"]
-  1 -> 1 [label="1"]
-  2 -> 1 [label="0"]
-  2 -> 2 [label="1"]
+  3 [shape=circle label=""]
+  1 [shape=doublecircle label=""]
+  n__ -> 3;
+  3 -> 1 [label="a"]
+  1 -> 1 [label="b, c"]
 }

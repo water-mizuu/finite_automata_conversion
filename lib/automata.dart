@@ -24,7 +24,7 @@ final class State {
   }
 
   @override
-  String toString() => label;
+  String toString() => "State($label)";
 }
 
 final class DFA {
@@ -38,26 +38,23 @@ final class DFA {
 
     State start = automaton.start;
     Set<State> states = <State>{start};
-    Set<Letter> alphabet = automaton.alphabet;
+    Set<Letter> alphabet = automaton.alphabet.toSet();
     Map<(State, Letter), State> transitions = <(State, Letter), State>{};
     Set<State> accepting = <State>{} //
       ..addAll(<State>{if (automaton.accepting.contains(automaton.start)) start});
 
-    Queue<Set<State>> queue = Queue<Set<State>>()..add(states.toSet());
+    Queue<Set<State>> queue = Queue<Set<State>>()..add(<State>{start});
     Map<String, int> stateCounter = <String, int>{start.label: start.id};
 
-    State createOrGetState(Set<State> states, {required bool add}) {
-      String label = states.label;
-      State found = switch (states.where((State v) => v.label == label).firstOrNull) {
+    (bool, State) createOrGetState(Set<State> stateSet) {
+      String label = stateSet.label;
+      State? query = states.where((State v) => v.label == label).firstOrNull;
+      State found = switch (query) {
         State state => state,
         null => State(stateCounter[label] ??= stateCounter.length, label),
       };
 
-      if (add) {
-        states.add(found);
-      }
-
-      return found;
+      return (states.add(found), found);
     }
 
     while (queue.isNotEmpty) {
@@ -65,7 +62,7 @@ final class DFA {
 
       /// This is very hacky.
       ///   This way, we can assure that the creation of states are unique.
-      State fromState = createOrGetState(current, add: true);
+      var (_, State fromState) = createOrGetState(current);
 
       for (Letter letter in alphabet) {
         Set<State> nextStates = current //
@@ -76,12 +73,12 @@ final class DFA {
           continue;
         }
 
-        State toState = createOrGetState(nextStates, add: false);
+        var (bool isNew, State toState) = createOrGetState(nextStates);
         transitions[(fromState, letter)] = toState;
         if (nextStates.intersection(automaton.accepting).isNotEmpty) {
           accepting.add(toState);
         }
-        if (states.add(toState)) {
+        if (isNew) {
           queue.add(nextStates);
         }
       }
@@ -128,12 +125,13 @@ final class DFA {
 
     State start = State(states.length, "start");
     states.add(start);
-    for (State state in accepting) {
-      transitions[(start, epsilon)] = <State>{state};
-    }
+    transitions //
+        .putIfAbsent((start, epsilon), () => <State>{}) //
+        .addAll(accepting);
 
     State accept = this.start;
-    NFA result = NFA(states, alphabet, transitions, start, <State>{accept}).removeEpsilonTransitions();
+    NFA result = NFA(states, alphabet, transitions, start, <State>{accept}) //
+        .removeEpsilonTransitions();
 
     return result;
   }
@@ -152,9 +150,14 @@ final class DFA {
     return accepting.contains(state);
   }
 
-  String generateTransitionTable() {
+  String generateTransitionTable({StateName name = StateName.renamed}) {
+    assert(name != StateName.blank, "In generating the transition table, it cannot be blank.");
+
     /// 0. Prerequisites
-    List<State> sortedStates = <State>[...states]..sort((State a, State b) => a.id - b.id);
+    Map<State, String> renames = _topologicalSortRenames();
+    List<State> sortedStates = <State>[
+      for (State state in states) State(state.id, renames[state]!),
+    ]..sort((State a, State b) => a.label.compareTo(b.label));
 
     /// 1. Generate the labels.
     List<String> yLabels = <String>["", for (Letter letter in alphabet) letter.toString()];
@@ -174,16 +177,16 @@ final class DFA {
     /// 3. Fill the matrix with the transitions.
     for (var ((State source, Letter letter), State value) in transitions.pairs) {
       int x = yLabels.indexOf(letter.rawLetter);
-      int y = xLabels.indexOf(source.label) + 2;
+      int y = xLabels.indexOf(renames[source]!) + 2;
       assert(y != 0);
       assert(x != -1);
 
-      stringMatrix[y][x] = value.label;
+      stringMatrix[y][x] = renames[value]!;
     }
 
     /// 4. Highlight the start and accepting states.
     for (int y = 2; y < stringMatrix.length; ++y) {
-      State state = states.firstWhere((State state) => state.label == stringMatrix[y][0]);
+      State state = states.firstWhere((State state) => renames[state]! == stringMatrix[y][0]);
 
       if (accepting.contains(state)) {
         stringMatrix[y][0] = "*  ${stringMatrix[y][0]}";
@@ -225,16 +228,10 @@ final class DFA {
     /// By utilizing the topological sorting, we can:
     ///   1. Rename the states.
     ///   2. Remove the states that are not reachable from the start state.
-    Map<State, String> topologicalSorting = _topologicalSortRenames(this.states);
+    Map<State, String> topologicalSorting = _topologicalSortRenames();
 
     Set<(bool, State)> states = <(bool, State)>{
-      for (State state in this.states)
-        if (topologicalSorting.containsKey(state)) (accepting.contains(state), state),
-    };
-    Map<(State, Letter), State> transitions = <(State, Letter), State>{
-      for (var ((State source, Letter letter), State target) in this.transitions.pairs)
-        if (topologicalSorting.containsKey(source) && topologicalSorting.containsKey(target)) //
-          (source, letter): target,
+      for (State state in this.states) (accepting.contains(state), state),
     };
     Map<(State, State), Set<Letter>> transformedTransitions = <(State, State), Set<Letter>>{};
     for (var ((State state, Letter letter), State target) in transitions.pairs) {
@@ -260,8 +257,8 @@ final class DFA {
 
     buffer.writeln("  n__ -> ${start.id};");
     for (var ((State source, State target), Set<Letter> letters) in transformedTransitions.pairs) {
-      buffer
-          .writeln('  ${source.id} -> ${target.id} [label="${letters.map((Letter v) => v.delinearized).join(", ")}"]');
+      String transitionLabel = letters.map((Letter v) => v.delinearized).join(", ");
+      buffer.writeln('  ${source.id} -> ${target.id} [label="$transitionLabel"]');
     }
 
     buffer.writeln("}");
@@ -269,7 +266,7 @@ final class DFA {
     return buffer.toString();
   }
 
-  Map<State, String> _topologicalSortRenames(Set<State> states) {
+  Map<State, String> _topologicalSortRenames() {
     Map<State, String> renames = Map<State, String>.identity();
     Queue<State> queue = Queue<State>()..add(start);
 
@@ -524,19 +521,16 @@ final class NFA {
     /// By utilizing the topological sorting, we can:
     ///   1. Rename the states.
     ///   2. Remove the states that are not reachable from the start state.
-    Map<State, String> topologicalSorting = _topologicalSortRenames(this.states);
+    // Map<State, String> topologicalSorting = _topologicalSortRenames(this.states);
 
     Set<(bool, State)> states = <(bool, State)>{
-      for (State state in this.states)
-        if (topologicalSorting.containsKey(state)) (accepting.contains(state), state),
+      for (State state in this.states) (accepting.contains(state), state),
     };
     Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
       for (var ((State source, Letter letter), Set<State> targets) in this.transitions.pairs)
-        if (topologicalSorting.containsKey(source))
-          (source, letter): <State>{
-            for (State target in targets)
-              if (topologicalSorting.containsKey(target)) target,
-          },
+        (source, letter): <State>{
+          for (State target in targets) target,
+        },
     };
     Map<(State, State), Set<Letter>> transformedTransitions = <(State, State), Set<Letter>>{};
     for (var ((State state, Letter letter), Set<State> targets) in transitions.pairs) {
@@ -555,7 +549,7 @@ final class NFA {
         ..write(
           switch (stateName) {
             StateName.original => state.label,
-            StateName.renamed => topologicalSorting[state]!,
+            StateName.renamed => "",
             StateName.blank => "",
           },
         )

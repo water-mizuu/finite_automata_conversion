@@ -71,7 +71,7 @@ class Letter extends RegularExpression {
   }
 
   @override
-  int get hashCode => rawLetter.hashCode;
+  int get hashCode => Object.hash(Letter, rawLetter);
 }
 
 class Epsilon extends Letter {

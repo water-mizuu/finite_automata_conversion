@@ -44,7 +44,7 @@ const Letter eight = Letter("8");
 const Letter nine = Letter("9");
 
 void main(List<String> arguments) {
-  test6();
+  test12();
 }
 
 void test0() {
@@ -293,6 +293,24 @@ void test11() {
   File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
   File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot(stateName: StateName.renamed));
+
+  print(dfa.accepts("01010010101001010101010"));
+}
+
+void test12() {
+  // (a+b)c
+  RegularExpression regex = a & (b | c).star;
+  NFA nfaE = NFA.fromThompsonConstruction(regex);
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = DFA.fromNFA(nfa);
+  DFA minimalDfa = dfa.minimized();
+
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot());
+  File("nfa.dot").writeAsStringSync(nfa.dot());
+  File("dfa.dot").writeAsStringSync(dfa.dot());
+  File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
+
+  print(minimalDfa.generateTransitionTable());
 
   print(dfa.accepts("01010010101001010101010"));
 }
