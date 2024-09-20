@@ -46,17 +46,26 @@ final class DFA {
     Queue<Set<State>> queue = Queue<Set<State>>()..add(states.toSet());
     Map<String, int> stateCounter = <String, int>{start.label: start.id};
 
+    State createOrGetState(Set<State> states, {required bool add}) {
+      String label = states.label;
+      State found = switch (states.where((State v) => v.label == label).firstOrNull) {
+        State state => state,
+        null => State(stateCounter[label] ??= stateCounter.length, label),
+      };
+
+      if (add) {
+        states.add(found);
+      }
+
+      return found;
+    }
+
     while (queue.isNotEmpty) {
       Set<State> current = queue.removeFirst();
 
       /// This is very hacky.
       ///   This way, we can assure that the creation of states are unique.
-      String fromLabel = current.label;
-      State fromState = switch (states.where((State v) => v.label == fromLabel).firstOrNull) {
-        State state => state,
-        null => State(stateCounter[fromLabel] ??= stateCounter.length, fromLabel),
-      };
-      states.add(fromState);
+      State fromState = createOrGetState(current, add: true);
 
       for (Letter letter in alphabet) {
         Set<State> nextStates = current //
@@ -67,12 +76,7 @@ final class DFA {
           continue;
         }
 
-        String toLabel = nextStates.label;
-        State toState = switch (states.where((State v) => v.label == toLabel).firstOrNull) {
-          State state => state,
-          null => State(stateCounter[toLabel] ??= stateCounter.length, toLabel),
-        };
-
+        State toState = createOrGetState(nextStates, add: false);
         transitions[(fromState, letter)] = toState;
         if (nextStates.intersection(automaton.accepting).isNotEmpty) {
           accepting.add(toState);
@@ -107,96 +111,31 @@ final class DFA {
   final Set<State> accepting;
 
   DFA minimized() {
-    Set<Set<State>> partitions = <Set<State>>{
-      <State>{
-        for (State state in states)
-          if (!accepting.contains(state)) state,
-      },
-      <State>{...accepting},
-    };
-    partitions.removeWhere((Set<State> partition) => partition.isEmpty);
+    return reversed().toDFA().reversed().toDFA();
+  }
 
-    /// I. Figure out the grouping of the new states.
-    /// Since we should not modify the set(s) we are iterating over, we need to create a temporary set.
-    Set<Set<State>> newPartitions = <Set<State>>{};
-    Map<Set<State>, Set<State>> toRemoveFromPartitions = <Set<State>, Set<State>>{};
-    bool run = false;
+  NFA reversed() {
+    /// Returns an NFA that accepts the reverse of the language of the original DFA.
+    Set<State> states = <State>{...this.states};
+    Set<Letter> alphabet = <Letter>{...this.alphabet};
+    Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{};
 
-    do {
-      run = false;
-
-      for (Set<State> partition in partitions) {
-        if (partition.length == 1) {
-          continue;
-        }
-
-        Set<State> toRemoveFromPartition = <State>{};
-        State leftComparator = partition.first;
-        for (State rightComparator in partition.skip(1)) {
-          for (Letter letter in alphabet) {
-            State? leftTo = transitions[(leftComparator, letter)];
-            State? rightTo = transitions[(rightComparator, letter)];
-
-            if (partitions.where((Set<State> p) => p.contains(leftTo)).firstOrNull !=
-                partitions.where((Set<State> p) => p.contains(rightTo)).firstOrNull) {
-              /// We need to remove this from the current partition.
-              toRemoveFromPartition.add(rightComparator);
-
-              /// We need to add it to a new partition.
-              newPartitions.add(<State>{rightComparator});
-
-              run |= true;
-              break;
-            }
-          }
-        }
-
-        toRemoveFromPartitions[partition] = toRemoveFromPartition;
-      }
-
-      partitions.addAll(newPartitions);
-      for (var (Set<State> partition, Set<State> toRemove) in toRemoveFromPartitions.pairs) {
-        partition.removeAll(toRemove);
-      }
-
-      newPartitions.clear();
-      toRemoveFromPartitions.clear();
-    } while (run);
-
-    /// II. Create the new states.
-
-    Map<Set<State>, int> groupIds = <Set<State>, int>{};
-    for (Set<State> partition in partitions) {
-      groupIds[partition] = groupIds.length;
+    for (var ((State source, Letter letter), State target) in this.transitions.pairs) {
+      transitions //
+          .putIfAbsent((target, letter), () => <State>{}) //
+          .add(source);
     }
 
-    /// Points each state to its partition.
-    Map<State, Set<State>> groupings = <State, Set<State>>{
-      for (State state in states)
-        for (Set<State> partition in partitions)
-          if (partition.contains(state)) state: partition,
-    };
+    State start = State(states.length, "start");
+    states.add(start);
+    for (State state in accepting) {
+      transitions[(start, epsilon)] = <State>{state};
+    }
 
-    /// Points each partition to its new state.
-    Map<Set<State>, State> newStateMap = <Set<State>, State>{
-      for (Set<State> partition in partitions) //
-        partition: State(groupIds[partition]!, partition.label),
-    };
+    State accept = this.start;
+    NFA result = NFA(states, alphabet, transitions, start, <State>{accept}).removeEpsilonTransitions();
 
-    /// III. Create the new transitions.
-    Map<(State, Letter), State> newTransitions = <(State, Letter), State>{
-      for (var ((State source, Letter letter), State target) in transitions.pairs)
-        (newStateMap[groupings[source]]!, letter): newStateMap[groupings[target]]!,
-    };
-
-    /// IV. Complete the different sets.
-
-    Set<State> newStates = newStateMap.values.toSet();
-    Set<Letter> newAlphabet = alphabet;
-    State newStart = newStateMap[groupings[start]]!;
-    Set<State> newAccepting = <State>{for (State state in accepting) newStateMap[groupings[state]]!};
-
-    return DFA(newStates, newAlphabet, newTransitions, newStart, newAccepting);
+    return result;
   }
 
   bool accepts(String string) {
