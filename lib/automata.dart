@@ -30,22 +30,15 @@ final class State {
 final class DFA {
   const DFA(this.states, this.alphabet, this.transitions, this.start, this.accepting);
 
-  factory DFA.fromNFA(
-    NFA automaton, {
-    bool minimized = false,
-  }) {
-    automaton = automaton.removeEpsilonTransitions();
+  factory DFA.fromNFA(NFA nfa) {
+    nfa = nfa.removeEpsilonTransitions();
 
-    State start = automaton.start;
-    Set<State> states = <State>{start};
-    Set<Letter> alphabet = automaton.alphabet.toSet();
+    Set<State> states = <State>{};
+    Set<Letter> alphabet = nfa.alphabet.toSet();
     Map<(State, Letter), State> transitions = <(State, Letter), State>{};
-    Set<State> accepting = <State>{} //
-      ..addAll(<State>{if (automaton.accepting.contains(automaton.start)) start});
+    Set<State> accepting = <State>{};
 
-    Queue<Set<State>> queue = Queue<Set<State>>()..add(<State>{start});
-    Map<String, int> stateCounter = <String, int>{start.label: start.id};
-
+    Map<String, int> stateCounter = <String, int>{};
     (bool, State) createOrGetState(Set<State> stateSet) {
       String label = stateSet.label;
       State? query = states.where((State v) => v.label == label).firstOrNull;
@@ -53,9 +46,15 @@ final class DFA {
         State state => state,
         null => State(stateCounter[label] ??= stateCounter.length, label),
       };
+      if (stateSet.intersection(nfa.accepting).isNotEmpty) {
+        accepting.add(found);
+      }
 
       return (states.add(found), found);
     }
+
+    Queue<Set<State>> queue = Queue<Set<State>>()..add(<State>{nfa.start});
+    var (_, State start) = createOrGetState(<State>{nfa.start});
 
     while (queue.isNotEmpty) {
       Set<State> current = queue.removeFirst();
@@ -65,30 +64,27 @@ final class DFA {
       var (_, State fromState) = createOrGetState(current);
 
       for (Letter letter in alphabet) {
-        Set<State> nextStates = current //
-            .expand((State from) => automaton.transitions[(from, letter)] ?? <State>{})
-            .toSet();
+        Set<State> nextStates = <State>{
+          for (State from in current) //
+            ...?nfa.transitions[(from, letter)],
+        };
 
-        if (nextStates.isEmpty) {
-          continue;
-        }
+        if (nextStates.isNotEmpty) {
+          var (bool isNew, State toState) = createOrGetState(nextStates);
 
-        var (bool isNew, State toState) = createOrGetState(nextStates);
-        transitions[(fromState, letter)] = toState;
-        if (nextStates.intersection(automaton.accepting).isNotEmpty) {
-          accepting.add(toState);
-        }
-        if (isNew) {
-          queue.add(nextStates);
+          transitions[(fromState, letter)] = toState;
+          if (nextStates.intersection(nfa.accepting).isNotEmpty) {
+            accepting.add(toState);
+          }
+          if (isNew) {
+            queue.add(nextStates);
+          }
         }
       }
     }
 
     DFA automata = DFA(states, alphabet, transitions, start, accepting);
 
-    if (minimized) {
-      return automata.minimized();
-    }
     return automata;
   }
 
@@ -123,15 +119,20 @@ final class DFA {
           .add(source);
     }
 
-    State start = State(states.length, "start");
-    states.add(start);
-    transitions //
-        .putIfAbsent((start, epsilon), () => <State>{}) //
-        .addAll(accepting);
+    /// We need to convert the NFA to a GNFA whenever there are multiple accepting states.
+    State start;
+    if (accepting.length > 1) {
+      start = State(states.length, "^");
+      states.add(start);
+      transitions //
+          .putIfAbsent((start, epsilon), () => <State>{}) //
+          .addAll(accepting);
+    } else {
+      start = accepting.single;
+    }
 
     State accept = this.start;
-    NFA result = NFA(states, alphabet, transitions, start, <State>{accept}) //
-        .removeEpsilonTransitions();
+    NFA result = NFA(states, alphabet, transitions, start, <State>{accept});
 
     return result;
   }
