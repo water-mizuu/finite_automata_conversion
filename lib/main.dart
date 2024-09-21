@@ -44,7 +44,7 @@ const Letter eight = Letter("8");
 const Letter nine = Letter("9");
 
 void main(List<String> arguments) {
-  test6();
+  test8();
 }
 
 void test0() {
@@ -234,12 +234,10 @@ void test8() {
   // A regular expression that accepts all strings that contain the substring '001'.
   // (0|1)*001(0|1)*
   RegularExpression regex = (zero | one).star & (zero & zero & one) & (zero | one).star;
-  NFA nfaE = NFA.fromRegularExpression(regex);
-  NFA nfa = nfaE.removeEpsilonTransitions();
-  DFA dfa = DFA.fromNFA(nfa);
+  NFA nfa = regex.glushkovConstruction();
+  DFA dfa = nfa.powerSetConstruction();
   DFA minimalDfa = dfa.minimized();
 
-  File("nfa_e.dot").writeAsStringSync(nfaE.dot());
   File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
   File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot(stateName: StateName.renamed));
