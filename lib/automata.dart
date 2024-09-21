@@ -130,29 +130,27 @@ final class DFA extends FiniteAutomata {
 
     /// The equivalence classes are now in [p].
 
-    print(p.length);
-    Set<State> states = <State>{};
+    Map<State, State> equivalentStates = <State, State>{};
     for (Set<State> v in p) {
-      states.add(State(states.length, v.label));
+      State resulting = State(equivalentStates.length, v.label);
+
+      for (State original in v) {
+        equivalentStates[original] = resulting;
+      }
     }
 
+    Set<State> states = equivalentStates.values.toSet();
     Set<Letter> alphabet = this.alphabet;
 
     Map<(State, Letter), State> transitions = <(State, Letter), State>{
       for (var ((State source, Letter letter), State target) in _transitions.pairs)
-        (
-          states.firstWhere((State state) => state.label == p.firstWhere((Set<State> v) => v.contains(source)).label),
-          letter
-        ): states.firstWhere((State state) => state.label == p.firstWhere((Set<State> v) => v.contains(target)).label),
+        (equivalentStates[source]!, letter): equivalentStates[target]!,
     };
 
-    State start = states //
-        .firstWhere((State state) => state.label == p.firstWhere((Set<State> v) => v.contains(this.start)).label);
+    State start = equivalentStates[this.start]!;
 
     Set<State> accepting = <State>{
-      for (Set<State> v in p)
-        if (v.intersection(this.accepting).isNotEmpty) //
-          states.firstWhere((State state) => state.label == v.label),
+      for (State state in this.accepting) equivalentStates[state]!,
     };
 
     return DFA(states, alphabet, transitions, start, accepting);
