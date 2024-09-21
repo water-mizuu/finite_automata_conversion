@@ -44,15 +44,15 @@ const Letter eight = Letter("8");
 const Letter nine = Letter("9");
 
 void main(List<String> arguments) {
-  test12();
+  test6();
 }
 
 void test0() {
   // (ab)*((bc),(acb))+
   RegularExpression regex = (a & b).star & ((b & c) | (a & c & b)).plus;
-  NFA nfaE = NFA.fromThompsonConstruction(regex);
+  NFA nfaE = regex.thompsonConstruction();
   NFA nfa = nfaE.removeEpsilonTransitions();
-  DFA dfa = DFA.fromNFA(nfa);
+  DFA dfa = nfa.powerSetConstruction();
   DFA minimalDfa = dfa.minimized();
 
   File("nfa_e.dot").writeAsStringSync(nfaE.dot());
@@ -182,9 +182,9 @@ void test4() {
 void test5() {
   RegularExpression regex = (a & (b & c | b & c)).star & ((b & c) | (a & c & b)).plus;
 
-  NFA nfaE = NFA.fromThompsonConstruction(regex);
-  NFA nfa = NFA.fromGlushkovConstruction(regex);
-  DFA dfa = DFA.fromNFA(nfa);
+  NFA nfaE = regex.thompsonConstruction();
+  NFA nfa = regex.glushkovConstruction();
+  DFA dfa = nfa.powerSetConstruction();
   DFA dfaM = dfa.minimized();
 
   print(nfa.accepts("abababcbdcbdbdcb"));
@@ -200,10 +200,10 @@ void test6() {
   // Let regular expression be (0|(1(01*(00)*0)*1)*)*.
   RegularExpression regex = (zero | (one & (zero & one.star & (zero & zero).star & zero).star & one).star).star;
 
-  NFA nfaE = NFA.fromThompsonConstruction(regex);
-  NFA nfa = NFA.fromGlushkovConstruction(regex);
-  DFA dfa = DFA.fromNFA(nfa);
-  DFA dfaM = dfa.minimized();
+  NFA nfaE = regex.glushkovConstruction();
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = nfa.powerSetConstruction();
+  FiniteAutomata dfaM = dfa.minimized();
 
   print(nfa.accepts("010000"));
 
@@ -268,9 +268,9 @@ void test10() {
   // A regular expression that accepts all strings that contain the substring '001'.
   // (0|1)*001(0|1)*
   RegularExpression regex = (zero | one | two).star & (a & b & c).plus;
-  NFA nfaE = NFA.fromThompsonConstruction(regex);
-  NFA nfa = NFA.fromGlushkovConstruction(regex);
-  DFA dfa = DFA.fromNFA(nfa);
+  NFA nfaE = regex.thompsonConstruction();
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = nfa.powerSetConstruction();
   DFA minimalDfa = dfa.minimized();
 
   File("nfa_e.dot").writeAsStringSync(nfaE.dot());
@@ -284,9 +284,9 @@ void test10() {
 void test11() {
   // (a+b)c
   RegularExpression regex = (a | b) & c;
-  NFA nfaE = NFA.fromThompsonConstruction(regex);
-  NFA nfa = NFA.fromGlushkovConstruction(regex);
-  DFA dfa = DFA.fromNFA(nfa);
+  NFA nfaE = regex.thompsonConstruction();
+  NFA nfa = nfaE.removeEpsilonTransitions();
+  DFA dfa = nfa.powerSetConstruction();
   DFA minimalDfa = dfa.minimized();
 
   File("nfa_e.dot").writeAsStringSync(nfaE.dot());
@@ -299,18 +299,16 @@ void test11() {
 
 void test12() {
   // (a+b)c
-  RegularExpression regex = a & (b | c).star;
+  RegularExpression regex = a & (b | c).plus;
   NFA nfaE = NFA.fromThompsonConstruction(regex);
   NFA nfa = nfaE.removeEpsilonTransitions();
-  DFA dfa = DFA.fromNFA(nfa);
+  DFA dfa = nfa.powerSetConstruction();
   DFA minimalDfa = dfa.minimized();
 
   File("nfa_e.dot").writeAsStringSync(nfaE.dot());
   File("nfa.dot").writeAsStringSync(nfa.dot());
   File("dfa.dot").writeAsStringSync(dfa.dot());
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
-
-  print(minimalDfa.generateTransitionTable());
 
   print(dfa.accepts("01010010101001010101010"));
 }

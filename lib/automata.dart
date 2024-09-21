@@ -27,100 +27,152 @@ final class State {
   String toString() => "State($label)";
 }
 
-final class DFA {
-  const DFA(this.states, this.alphabet, this.transitions, this.start, this.accepting);
+sealed class FiniteAutomata {
+  const FiniteAutomata();
 
-  factory DFA.fromNFA(NFA nfa) {
-    nfa = nfa.removeEpsilonTransitions();
+  bool accepts(String string);
 
-    Set<State> states = <State>{};
-    Set<Letter> alphabet = nfa.alphabet.toSet();
-    Map<(State, Letter), State> transitions = <(State, Letter), State>{};
-    Set<State> accepting = <State>{};
+  Set<State> get states;
+  Set<Letter> get alphabet;
+  Iterable<(State, Letter, State)> get transitions;
+  State get start;
+  Set<State> get accepting;
 
-    Map<String, int> stateCounter = <String, int>{};
-    (bool, State) createOrGetState(Set<State> stateSet) {
-      String label = stateSet.label;
-      State? query = states.where((State v) => v.label == label).firstOrNull;
-      State found = switch (query) {
-        State state => state,
-        null => State(stateCounter[label] ??= stateCounter.length, label),
-      };
-      if (stateSet.intersection(nfa.accepting).isNotEmpty) {
-        accepting.add(found);
-      }
+  String generateTransitionTable({StateName name = StateName.renamed});
+  String dot({StateName stateName});
+}
 
-      return (states.add(found), found);
-    }
+final class DFA extends FiniteAutomata {
+  const DFA(this.states, this.alphabet, this._transitions, this.start, this.accepting);
 
-    Queue<Set<State>> queue = Queue<Set<State>>()..add(<State>{nfa.start});
-    var (_, State start) = createOrGetState(<State>{nfa.start});
+  factory DFA.fromNFA(NFA nfa) => nfa.powerSetConstruction();
 
-    while (queue.isNotEmpty) {
-      Set<State> current = queue.removeFirst();
+  /// Σ
+  @override
+  final Set<State> states;
 
-      /// This is very hacky.
-      ///   This way, we can assure that the creation of states are unique.
-      var (_, State fromState) = createOrGetState(current);
+  /// Q
+  @override
+  final Set<Letter> alphabet;
 
-      for (Letter letter in alphabet) {
-        Set<State> nextStates = <State>{
-          for (State from in current) //
-            ...?nfa.transitions[(from, letter)],
+  /// δ
+  final Map<(State, Letter), State> _transitions;
+
+  @override
+  Iterable<(State, Letter, State)> get transitions => _transitions.pairs //
+      .map((((State, Letter) key, State value) triple) => (triple.$1.$1, triple.$1.$2, triple.$2));
+
+  /// q₀
+  @override
+  final State start;
+
+  /// F
+  @override
+  final Set<State> accepting;
+
+  /// Minimizes the DFA according to the Hopcroft 's algorithm.
+  DFA minimized() {
+    Set<State> nf = this.states.difference(this.accepting);
+
+    /// P = {F, Q \ F}
+    Set<Set<State>> p = <Set<State>>{this.accepting, nf};
+
+    /// W = {F, Q \ F}
+    Set<Set<State>> w = <Set<State>>{this.accepting, nf};
+
+    /// while (W is not empty) do
+    while (w.isNotEmpty) {
+      /// choose and remove a set A from W
+      Set<State> a = w.first;
+      w.remove(a);
+
+      /// for each c in Σ do
+      for (Letter c in this.alphabet) {
+        /// let X be the set of states for which a transition on c leads to a state in A
+        Set<State> x = <State>{
+          for (State state in this.states)
+            if (a.any((State v) => _transitions[(state, c)] == v)) state,
         };
 
-        if (nextStates.isNotEmpty) {
-          var (bool isNew, State toState) = createOrGetState(nextStates);
+        /// for each set Y in P for which X ∩ Y is nonempty and Y \ X is nonempty do
+        for (Set<State> y in p.toSet()) {
+          Set<State> xIy = x.intersection(y);
+          Set<State> yDx = y.difference(x);
 
-          transitions[(fromState, letter)] = toState;
-          if (nextStates.intersection(nfa.accepting).isNotEmpty) {
-            accepting.add(toState);
+          if (xIy.isEmpty || yDx.isEmpty) {
+            continue;
           }
-          if (isNew) {
-            queue.add(nextStates);
+
+          /// replace Y in P by the two sets X ∩ Y and Y \ X
+          p.remove(y);
+          p.add(xIy);
+          p.add(yDx);
+
+          /// if Y is in W
+          if (w.contains(y)) {
+            /// replace Y in W by the same two sets
+            w.remove(y);
+            w.add(xIy);
+            w.add(yDx);
+          } else {
+            /// if |X ∩ Y| <= |Y \ X|
+            if (xIy.length <= yDx.length) {
+              /// add X ∩ Y to W
+              w.add(xIy);
+            } else {
+              /// add Y \ X to W
+              w.add(yDx);
+            }
           }
         }
       }
     }
 
-    DFA automata = DFA(states, alphabet, transitions, start, accepting);
+    /// The equivalence classes are now in [p].
 
-    return automata;
+    print(p.length);
+    Set<State> states = <State>{};
+    for (Set<State> v in p) {
+      states.add(State(states.length, v.label));
+    }
+
+    Set<Letter> alphabet = this.alphabet;
+
+    Map<(State, Letter), State> transitions = <(State, Letter), State>{
+      for (var ((State source, Letter letter), State target) in _transitions.pairs)
+        (
+          states.firstWhere((State state) => state.label == p.firstWhere((Set<State> v) => v.contains(source)).label),
+          letter
+        ): states.firstWhere((State state) => state.label == p.firstWhere((Set<State> v) => v.contains(target)).label),
+    };
+
+    State start = states //
+        .firstWhere((State state) => state.label == p.firstWhere((Set<State> v) => v.contains(this.start)).label);
+
+    Set<State> accepting = <State>{
+      for (Set<State> v in p)
+        if (v.intersection(this.accepting).isNotEmpty) //
+          states.firstWhere((State state) => state.label == v.label),
+    };
+
+    return DFA(states, alphabet, transitions, start, accepting);
   }
 
-  /// Σ
-  final Set<State> states;
-
-  /// Q
-  final Set<Letter> alphabet;
-
-  /// δ
-  final Map<(State, Letter), State> transitions;
-
-  /// q₀
-  final State start;
-
-  /// F
-  final Set<State> accepting;
-
-  DFA minimized() {
-    return reversed().toDFA().reversed().toDFA();
-  }
-
+  /// Returns an NFA that accepts the reverse of the language of the original DFA.
   NFA reversed() {
-    /// Returns an NFA that accepts the reverse of the language of the original DFA.
     Set<State> states = <State>{...this.states};
     Set<Letter> alphabet = <Letter>{...this.alphabet};
     Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{};
 
-    for (var ((State source, Letter letter), State target) in this.transitions.pairs) {
+    for (var ((State source, Letter letter), State target) in _transitions.pairs) {
       transitions //
           .putIfAbsent((target, letter), () => <State>{}) //
           .add(source);
     }
 
-    /// We need to convert the NFA to a GNFA whenever there are multiple accepting states.
     State start;
+
+    /// We need to convert the NFA to a GNFA whenever there are multiple accepting states.
     if (accepting.length > 1) {
       start = State(states.length, "^");
       states.add(start);
@@ -137,11 +189,12 @@ final class DFA {
     return result;
   }
 
+  @override
   bool accepts(String string) {
     State state = start;
 
     for (String char in string.split("")) {
-      if (transitions[(state, Letter(char))] case State newState) {
+      if (_transitions[(state, Letter(char))] case State newState) {
         state = newState;
       } else {
         return false;
@@ -151,6 +204,7 @@ final class DFA {
     return accepting.contains(state);
   }
 
+  @override
   String generateTransitionTable({StateName name = StateName.renamed}) {
     assert(name != StateName.blank, "In generating the transition table, it cannot be blank.");
 
@@ -176,7 +230,7 @@ final class DFA {
     ];
 
     /// 3. Fill the matrix with the transitions.
-    for (var ((State source, Letter letter), State value) in transitions.pairs) {
+    for (var ((State source, Letter letter), State value) in _transitions.pairs) {
       int x = yLabels.indexOf(letter.rawLetter);
       int y = xLabels.indexOf(renames[source]!) + 2;
       assert(y != 0);
@@ -223,6 +277,7 @@ final class DFA {
         .join("\n");
   }
 
+  @override
   String dot({StateName stateName = StateName.blank}) {
     StringBuffer buffer = StringBuffer("digraph G {\n");
 
@@ -235,7 +290,7 @@ final class DFA {
       for (State state in this.states) (accepting.contains(state), state),
     };
     Map<(State, State), Set<Letter>> transformedTransitions = <(State, State), Set<Letter>>{};
-    for (var ((State state, Letter letter), State target) in transitions.pairs) {
+    for (var ((State state, Letter letter), State target) in _transitions.pairs) {
       transformedTransitions.putIfAbsent((state, target), () => <Letter>{}).add(letter);
     }
 
@@ -281,7 +336,7 @@ final class DFA {
       renames[state] = "q${renames.length}";
 
       for (Letter letter in alphabet.union(<Letter>{epsilon})) {
-        if (transitions[(state, letter)] case State next) {
+        if (_transitions[(state, letter)] case State next) {
           queue.addLast(next);
         }
       }
@@ -291,20 +346,21 @@ final class DFA {
   }
 }
 
-enum NfaConversionMode {
+enum NFAConversionMode {
   glushkov,
   thompson,
 }
 
-final class NFA {
-  const NFA(this.states, this.alphabet, this.transitions, this.start, this.accepting);
+final class NFA extends FiniteAutomata {
+  const NFA(this.states, this.alphabet, this._transitions, this.start, this.accepting);
+
   factory NFA.fromRegularExpression(
     RegularExpression regularExpression, {
-    NfaConversionMode mode = NfaConversionMode.glushkov,
+    NFAConversionMode mode = NFAConversionMode.glushkov,
   }) =>
       switch (mode) {
-        NfaConversionMode.glushkov => NFA.fromGlushkovConstruction(regularExpression),
-        NfaConversionMode.thompson => NFA.fromThompsonConstruction(regularExpression),
+        NFAConversionMode.glushkov => NFA.fromGlushkovConstruction(regularExpression),
+        NFAConversionMode.thompson => NFA.fromThompsonConstruction(regularExpression),
       };
 
   factory NFA.fromGlushkovConstruction(RegularExpression regularExpression) {
@@ -358,25 +414,31 @@ final class NFA {
     return NFA(states, alphabet, transitions, start, accepting);
   }
 
-  factory NFA.fromThompsonConstruction(RegularExpression regularExpression) {
-    var (int id, NFA nfa) = _thompsonConstruction(regularExpression, 0);
-
-    return nfa;
-  }
+  factory NFA.fromThompsonConstruction(RegularExpression regularExpression) => regularExpression.thompsonConstruction();
 
   /// Σ
+  @override
   final Set<State> states;
 
   /// Q
+  @override
   final Set<Letter> alphabet;
 
   /// δ : Q × Σ --> Q
-  final Map<(State, Letter), Set<State>> transitions;
+  final Map<(State, Letter), Set<State>> _transitions;
+
+  @override
+  Iterable<(State, Letter, State)> get transitions => _transitions.pairs.expand(
+        (((State, Letter) key, Set<State> value) triple) =>
+            triple.$2.map((State right) => (triple.$1.$1, triple.$1.$2, right)),
+      );
 
   /// q₀
+  @override
   final State start;
 
   /// F
+  @override
   final Set<State> accepting;
 
   NFA removeEpsilonTransitions() {
@@ -395,7 +457,7 @@ final class NFA {
         State currentState = queue.removeFirst();
 
         if (epsilonClosure[state] case Set<State> closure) {
-          if (transitions[(currentState, epsilon)] case Set<State> nextStates) {
+          if (_transitions[(currentState, epsilon)] case Set<State> nextStates) {
             queue.addAll(nextStates.difference(closure));
             closure.addAll(nextStates);
           }
@@ -413,7 +475,7 @@ final class NFA {
 
           /// ∀α ∈ Σ δ'(q, α) = ε(δ(ε(q), α))
           (state, letter): epsilonClosure[state]! //
-              .expand((State state) => transitions[(state, letter)] ?? <State>{})
+              .expand((State state) => _transitions[(state, letter)] ?? <State>{})
               .expand((State state) => epsilonClosure[state]!)
               .toSet(),
     }..removeWhere(((State, Letter) key, Set<State> value) => value.isEmpty);
@@ -429,8 +491,68 @@ final class NFA {
     return NFA(states, newAlphabet, newTransitions, start, newAccepting);
   }
 
-  DFA toDFA() => DFA.fromNFA(this);
+  /// Returns a DFA according to the powerset construction algorithm.
+  DFA powerSetConstruction() {
+    NFA nfa = removeEpsilonTransitions();
 
+    Set<State> states = <State>{};
+    Set<Letter> alphabet = nfa.alphabet.toSet();
+    Map<(State, Letter), State> transitions = <(State, Letter), State>{};
+    Set<State> accepting = <State>{};
+
+    Map<String, int> stateCounter = <String, int>{};
+
+    /// This function creates a new state from a set of states
+    ///   if it does not exist.
+    (bool, State) createOrGetState(Set<State> stateSet) {
+      String label = stateSet.label;
+      State found = switch (states.where((State v) => v.label == label).firstOrNull) {
+        State state => state,
+        null => State(stateCounter[label] ??= stateCounter.length, label),
+      };
+      if (stateSet.intersection(nfa.accepting).isNotEmpty) {
+        accepting.add(found);
+      }
+
+      return (states.add(found), found);
+    }
+
+    Queue<Set<State>> queue = Queue<Set<State>>()..add(<State>{nfa.start});
+    var (_, State start) = createOrGetState(<State>{nfa.start});
+
+    while (queue.isNotEmpty) {
+      Set<State> current = queue.removeFirst();
+
+      /// This is very hacky.
+      ///   This way, we can assure that the creation of states are unique.
+      var (_, State fromState) = createOrGetState(current);
+
+      for (Letter letter in alphabet) {
+        Set<State> nextStates = <State>{
+          for (State from in current) //
+            ...?nfa._transitions[(from, letter)],
+        };
+
+        if (nextStates.isNotEmpty) {
+          var (bool isNew, State toState) = createOrGetState(nextStates);
+
+          transitions[(fromState, letter)] = toState;
+          if (nextStates.intersection(nfa.accepting).isNotEmpty) {
+            accepting.add(toState);
+          }
+          if (isNew) {
+            queue.add(nextStates);
+          }
+        }
+      }
+    }
+
+    return (states, alphabet, transitions, start, accepting).automata;
+  }
+
+  DFA toDFA() => powerSetConstruction();
+
+  @override
   bool accepts(String string) {
     if (alphabet.contains(epsilon)) {
       return removeEpsilonTransitions().accepts(string);
@@ -443,15 +565,21 @@ final class NFA {
         return false;
       }
 
-      states = states.expand((State state) => transitions[(state, Letter(char))] ?? <State>{}).toSet();
+      states = states.expand((State state) => _transitions[(state, Letter(char))] ?? <State>{}).toSet();
     }
 
     return states.intersection(accepting).isNotEmpty;
   }
 
-  String generateTransitionTable() {
+  @override
+  String generateTransitionTable({StateName name = StateName.renamed}) {
+    assert(name != StateName.blank, "In generating the transition table, it cannot be blank.");
+
     /// 0. Prerequisites
-    List<State> sortedStates = <State>[...states]..sort((State a, State b) => a.id - b.id);
+    Map<State, String> renames = _topologicalSortRenames();
+    List<State> sortedStates = <State>[
+      for (State state in states) State(state.id, renames[state]!),
+    ]..sort((State a, State b) => a.label.compareTo(b.label));
 
     /// 1. Generate the labels.
     List<String> yLabels = <String>["", for (Letter letter in alphabet) letter.toString()];
@@ -469,9 +597,9 @@ final class NFA {
     ];
 
     /// 3. Fill the matrix with the transitions.
-    for (var ((State source, Letter letter), Set<State> value) in transitions.pairs) {
+    for (var ((State source, Letter letter), Set<State> value) in _transitions.pairs) {
       int x = yLabels.indexOf(letter.rawLetter);
-      int y = xLabels.indexOf(source.label) + 2;
+      int y = xLabels.indexOf(renames[source]!) + 2;
       assert(y != 0);
       assert(x != -1);
 
@@ -516,22 +644,26 @@ final class NFA {
         .join("\n");
   }
 
+  @override
   String dot({StateName stateName = StateName.blank}) {
     StringBuffer buffer = StringBuffer("digraph G {\n");
 
     /// By utilizing the topological sorting, we can:
     ///   1. Rename the states.
     ///   2. Remove the states that are not reachable from the start state.
-    // Map<State, String> topologicalSorting = _topologicalSortRenames(this.states);
-
+    Map<State, String> topologicalSorting = _topologicalSortRenames();
     Set<(bool, State)> states = <(bool, State)>{
-      for (State state in this.states) (accepting.contains(state), state),
+      for (State state in this.states)
+        if (topologicalSorting.containsKey(state)) //
+          (accepting.contains(state), state),
     };
     Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
-      for (var ((State source, Letter letter), Set<State> targets) in this.transitions.pairs)
-        (source, letter): <State>{
-          for (State target in targets) target,
-        },
+      for (var ((State source, Letter letter), Set<State> targets) in _transitions.pairs)
+        if (topologicalSorting.containsKey(source))
+          (source, letter): <State>{
+            for (State target in targets)
+              if (topologicalSorting.containsKey(target)) target,
+          },
     };
     Map<(State, State), Set<Letter>> transformedTransitions = <(State, State), Set<Letter>>{};
     for (var ((State state, Letter letter), Set<State> targets) in transitions.pairs) {
@@ -550,7 +682,7 @@ final class NFA {
         ..write(
           switch (stateName) {
             StateName.original => state.label,
-            StateName.renamed => "",
+            StateName.renamed => topologicalSorting[state]!,
             StateName.blank => "",
           },
         )
@@ -568,7 +700,7 @@ final class NFA {
     return buffer.toString();
   }
 
-  Map<State, String> _topologicalSortRenames(Set<State> states) {
+  Map<State, String> _topologicalSortRenames() {
     Map<State, String> renames = Map<State, String>.identity();
     Queue<State> queue = Queue<State>()..add(start);
 
@@ -582,11 +714,118 @@ final class NFA {
       renames[state] = "q${renames.length}";
 
       for (Letter letter in alphabet.union(<Letter>{epsilon})) {
-        transitions[(state, letter)]?.forEach(queue.addLast);
+        _transitions[(state, letter)]?.forEach(queue.addLast);
       }
     }
 
     return renames;
+  }
+}
+
+extension on Set<State> {
+  String get label => map((State state) => state.label).join(", ");
+}
+
+extension<K, V> on Map<K, V> {
+  Iterable<(K, V)> get pairs => entries.map((MapEntry<K, V> entry) => (entry.key, entry.value));
+}
+
+extension DeterministicFiniteAutomataCreator on (
+  Set<State> states,
+  Set<Letter> alphabet,
+  Map<(State, Letter), State> transitions,
+  State start,
+  Set<State> accepting,
+) {
+  DFA get automata => DFA($1, $2, $3, $4, $5);
+}
+
+extension NonDeterministicFiniteAutomataCreator on (
+  Set<State> states,
+  Set<Letter> alphabet,
+  Map<(State, Letter), Set<State>> transitions,
+  State start,
+  Set<State> accepting,
+) {
+  NFA get automata => NFA($1, $2, $3, $4, $5);
+}
+
+extension ThompsonConstructionExtension on RegularExpression {
+  /// Returns an NFA according to the Glushkov's construction algorithm.
+  NFA glushkovConstruction() {
+    RegularExpression linearized = this.linearized;
+
+    /// The set P(e) of a linearized regular expression refers to
+    ///   all of the states where the regular expression can start in.
+    ///
+    /// This is used to determine the states that are reachable from the start state.
+    Set<Letter> prefixes = Set<Letter>.identity()..addAll(linearized.prefixes);
+
+    /// The set D(e) of a linearized regular expression refers to
+    ///   all of the states where the regular expression can end in.
+    ///
+    /// This is used to determine the accepting states.
+    Set<Letter> suffixes = Set<Letter>.identity()..addAll(linearized.suffixes);
+
+    /// The set F(e) of a linearized regular expression refers to
+    ///   all of the pairs of successions of states in the regular expression.
+    ///
+    /// This is used to determine the transitions between states.
+    Set<(Letter, Letter)> pairs = Set<(Letter, Letter)>.identity()..addAll(linearized.pairs);
+
+    State start = const State(0, "1");
+    Set<Letter> alphabet = letters.toSet();
+    Set<State> states = Set<State>.identity()..add(start);
+    Set<State> accepting = Set<State>.identity();
+
+    /// If the regular expression is nullable, the start state is accepting.
+    if (isNullable) {
+      accepting.add(start);
+    }
+
+    /// For each linearized letter, we create a state.
+    ///   If the linearized letter is in D, then the state is accepting.
+    for (Letter letter in linearized.letters) {
+      String stateName = letter.toString();
+      State state = State(letter.id!, stateName);
+
+      states.add(state);
+      if (suffixes.contains(letter)) {
+        accepting.add(state);
+      }
+    }
+
+    Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
+      for (Letter letter in alphabet) (start, letter): <State>{},
+      for (State state in states)
+        for (Letter letter in alphabet) (state, letter): <State>{},
+    };
+
+    /// For each linearized letter in P, we create a
+    ///   transition from the start state to the state.
+    for (Letter letter in prefixes) {
+      states //
+          .where((State state) => state.id == letter.id)
+          .forEach(transitions[(start, letter.delinearized)]!.add);
+    }
+
+    /// For the rest of the pairs, we create transitions between the states.
+    ///   The symbol of the transition is the second letter of the pair.
+    for (var (Letter left, Letter right) in pairs) {
+      State originState = states.firstWhere((State state) => state.id == left.id);
+      State targetState = states.firstWhere((State state) => state.id == right.id);
+
+      transitions[(originState, right.delinearized)]!.add(targetState);
+    }
+
+    return NFA(states, alphabet, transitions, start, accepting);
+  }
+
+  /// Returns an NFA according to the Thompson's construction algorithm.
+  NFA thompsonConstruction() {
+    var (int id, NFA nfa) = _thompsonConstruction(this, 0);
+
+    return nfa;
   }
 
   /// Thompson's construction algorithm, according to the wikipedia page:
@@ -626,8 +865,8 @@ final class NFA {
         Set<State> states = <State>{start, end, ...leftNfa.states, ...rightNfa.states};
         Set<Letter> alphabet = leftNfa.alphabet.union(rightNfa.alphabet);
         Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
-          ...leftNfa.transitions,
-          ...rightNfa.transitions,
+          ...leftNfa._transitions,
+          ...rightNfa._transitions,
           (start, epsilon): <State>{leftStart, rightStart},
           (leftEnd, epsilon): <State>{end},
           (rightEnd, epsilon): <State>{end},
@@ -652,11 +891,11 @@ final class NFA {
         Set<State> states = <State>{...leftNfa.states, ...rightNfa.states}.difference(<State>{leftEnd});
         Set<Letter> alphabet = leftNfa.alphabet.union(rightNfa.alphabet);
         Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
-          ...leftNfa.transitions,
-          ...rightNfa.transitions,
-          for (var ((State from, Letter symbol), Set<State> to) in leftNfa.transitions.pairs)
+          ...leftNfa._transitions,
+          ...rightNfa._transitions,
+          for (var ((State from, Letter symbol), Set<State> to) in leftNfa._transitions.pairs)
             if (to.contains(leftEnd))
-              (from, symbol): leftNfa.transitions[(from, symbol)]! //
+              (from, symbol): leftNfa._transitions[(from, symbol)]! //
                   .difference(<State>{leftEnd}) //
                   .union(<State>{rightStart}),
         };
@@ -672,8 +911,8 @@ final class NFA {
         Set<State> states = <State>{...innerNfa.states};
         Set<Letter> alphabet = innerNfa.alphabet;
         Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
-          ...innerNfa.transitions,
-          (innerStart, epsilon): <State>{...?innerNfa.transitions[(innerStart, epsilon)], innerEnd},
+          ...innerNfa._transitions,
+          (innerStart, epsilon): <State>{...?innerNfa._transitions[(innerStart, epsilon)], innerEnd},
         };
 
         return (id, NFA(states, alphabet, transitions, innerStart, <State>{innerEnd}));
@@ -689,9 +928,9 @@ final class NFA {
         Set<State> states = <State>{start, end, ...innerNfa.states};
         Set<Letter> alphabet = innerNfa.alphabet;
         Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
-          ...innerNfa.transitions,
+          ...innerNfa._transitions,
           (start, epsilon): <State>{innerNfa.start, end},
-          (innerEnd, epsilon): <State>{...?innerNfa.transitions[(innerEnd, epsilon)], innerStart, end},
+          (innerEnd, epsilon): <State>{...?innerNfa._transitions[(innerEnd, epsilon)], innerStart, end},
         };
 
         return (id, NFA(states, alphabet, transitions, start, <State>{end}));
@@ -707,51 +946,12 @@ final class NFA {
         Set<State> states = <State>{start, end, ...innerNfa.states};
         Set<Letter> alphabet = innerNfa.alphabet;
         Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
-          ...innerNfa.transitions,
+          ...innerNfa._transitions,
           (start, epsilon): <State>{innerNfa.start},
-          (innerEnd, epsilon): <State>{...?innerNfa.transitions[(innerEnd, epsilon)], innerStart, end},
+          (innerEnd, epsilon): <State>{...?innerNfa._transitions[(innerEnd, epsilon)], innerStart, end},
         };
 
         return (id, NFA(states, alphabet, transitions, start, <State>{end}));
     }
   }
-}
-
-extension on Set<State> {
-  String get label {
-    List<Indexed<String>> labels = <Indexed<String>>[
-      for (State state in this)
-        switch (RegExp(r".*\[(\d+)\]").matchAsPrefix(state.label)) {
-          RegExpMatch match => (int.parse(match.group(1)!), state.label),
-          _ => (0, state.label),
-        },
-    ];
-    labels.sort((Indexed<String> a, Indexed<String> b) => a.$1.compareTo(b.$1));
-
-    return labels.map((Indexed<String> pair) => pair.$2).join(", ");
-  }
-}
-
-extension<K, V> on Map<K, V> {
-  Iterable<(K, V)> get pairs => entries.map((MapEntry<K, V> entry) => (entry.key, entry.value));
-}
-
-extension DeterministicFiniteAutomataCreator on (
-  Set<State> states,
-  Set<Letter> alphabet,
-  Map<(State, Letter), State> transitions,
-  State start,
-  Set<State> accepting,
-) {
-  DFA get automata => DFA($1, $2, $3, $4, $5);
-}
-
-extension NonDeterministicFiniteAutomataCreator on (
-  Set<State> states,
-  Set<Letter> alphabet,
-  Map<(State, Letter), Set<State>> transitions,
-  State start,
-  Set<State> accepting,
-) {
-  NFA get automata => NFA($1, $2, $3, $4, $5);
 }

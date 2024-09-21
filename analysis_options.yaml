@@ -2,6 +2,7 @@ analyzer:
   enable-experiment:
     - augmentations
     - macros
+    - wildcard-variables
   language:
     strict-inference: true
     strict-raw-types: true
