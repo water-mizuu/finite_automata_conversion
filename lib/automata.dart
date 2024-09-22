@@ -130,25 +130,29 @@ final class DFA extends FiniteAutomata {
 
     /// The equivalence classes are now in [p].
 
-    Map<State, State> equivalentStates = <State, State>{};
-    for (Set<State> v in p) {
-      State resulting = State(equivalentStates.length, v.label);
+    /// This is used to map the original states to their new merged states.
+    Map<State, State> equivalentStates = <State, State>{
+      for (var (int id, Set<State> v) in p.indexed)
+        if (State(id, v.label) case State resulting)
+          for (State original in v) original: resulting,
+    };
 
-      for (State original in v) {
-        equivalentStates[original] = resulting;
-      }
-    }
-
+    /// This is now the states of the minimized DFA.
     Set<State> states = equivalentStates.values.toSet();
+
+    /// The alphabet remains the same.
     Set<Letter> alphabet = this.alphabet;
 
+    /// The transitions are now the transitions of the minimized DFA.
     Map<(State, Letter), State> transitions = <(State, Letter), State>{
       for (var ((State source, Letter letter), State target) in _transitions.pairs)
         (equivalentStates[source]!, letter): equivalentStates[target]!,
     };
 
+    /// The start state is the equivalent state of the original start state.
     State start = equivalentStates[this.start]!;
 
+    /// The accepting states are the equivalent states of the original accepting states.
     Set<State> accepting = <State>{
       for (State state in this.accepting) equivalentStates[state]!,
     };
@@ -285,10 +289,16 @@ final class DFA extends FiniteAutomata {
     Map<State, String> topologicalSorting = _topologicalSortRenames();
 
     Set<(bool, State)> states = <(bool, State)>{
-      for (State state in this.states) (accepting.contains(state), state),
+      for (State state in this.states)
+        if (topologicalSorting.containsKey(state)) (accepting.contains(state), state),
+    };
+    Map<(State, Letter), State> transitions = <(State, Letter), State>{
+      for (var ((State source, Letter letter), State target) in _transitions.pairs)
+        if (topologicalSorting.containsKey(source))
+          if (topologicalSorting.containsKey(target)) (source, letter): target,
     };
     Map<(State, State), Set<Letter>> transformedTransitions = <(State, State), Set<Letter>>{};
-    for (var ((State state, Letter letter), State target) in _transitions.pairs) {
+    for (var ((State state, Letter letter), State target) in transitions.pairs) {
       transformedTransitions.putIfAbsent((state, target), () => <Letter>{}).add(letter);
     }
 

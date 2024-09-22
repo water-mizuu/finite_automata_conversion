@@ -8,6 +8,7 @@ environment:
 
 # Add regular dependencies here.
 dependencies:
+  wasm: ^0.1.0+1
   # path: ^1.8.0
 
 dev_dependencies:

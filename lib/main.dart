@@ -44,7 +44,7 @@ const Letter eight = Letter("8");
 const Letter nine = Letter("9");
 
 void main(List<String> arguments) {
-  test8();
+  test5();
 }
 
 void test0() {
@@ -125,9 +125,9 @@ void test2() {
 }
 
 void test3() {
-  State state0 = const State(0, "q0");
-  State state1 = const State(1, "q1");
-  State state2 = const State(2, "q2");
+  const State state0 = State(0, "q0");
+  const State state1 = State(1, "q1");
+  const State state2 = State(2, "q2");
 
   Set<State> states = <State>{state0, state1, state2};
   Set<Letter> alphabet = <Letter>{a, b};
@@ -174,13 +174,12 @@ void test4() {
   DFA dfa = DFA(states, alphabet, transitions, start, accepting);
   DFA minimalDfa = dfa.minimized();
 
-  print(dfa.accepts("acbbcacbbcbcbcbcbcacbacb"));
   File("dfa.dot").writeAsStringSync(dfa.dot());
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
 }
 
 void test5() {
-  RegularExpression regex = (a & (b & c | b & c)).star & ((b & c) | (a & c & b)).plus;
+  RegularExpression regex = (a & b).star & ((b & c) | (a & c & b)).plus;
 
   NFA nfaE = regex.thompsonConstruction();
   NFA nfa = regex.glushkovConstruction();
@@ -217,17 +216,17 @@ void test7() {
   /// Let the regular expression be (ε|a*b)
   RegularExpression regex = epsilon | a.star & b;
 
-  NFA nfaE = NFA.fromThompsonConstruction(regex);
+  NFA nfaE = regex.thompsonConstruction();
   NFA nfa = nfaE.removeEpsilonTransitions();
-  DFA dfa = DFA.fromNFA(nfa);
+  DFA dfa = nfa.powerSetConstruction();
   DFA dfaM = dfa.minimized();
 
-  print(nfa.accepts("ab"));
+  print(nfa.accepts("aaaaaaaaaaaaab"));
 
-  File("nfa_e.dot").writeAsStringSync(nfaE.dot(stateName: StateName.renamed));
-  File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
-  File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
-  File("dfa_m.dot").writeAsStringSync(dfaM.dot(stateName: StateName.renamed));
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot());
+  File("nfa.dot").writeAsStringSync(nfa.dot());
+  File("dfa.dot").writeAsStringSync(dfa.dot());
+  File("dfa_m.dot").writeAsStringSync(dfaM.dot());
 }
 
 void test8() {
@@ -263,8 +262,6 @@ void test9() {
 }
 
 void test10() {
-  // A regular expression that accepts all strings that contain the substring '001'.
-  // (0|1)*001(0|1)*
   RegularExpression regex = (zero | one | two).star & (a & b & c).plus;
   NFA nfaE = regex.thompsonConstruction();
   NFA nfa = nfaE.removeEpsilonTransitions();
