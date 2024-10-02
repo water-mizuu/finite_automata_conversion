@@ -500,7 +500,7 @@ final class NFA extends FiniteAutomata {
   }
 
   /// Returns a DFA according to the powerset construction algorithm.
-  DFA powerSetConstruction() {
+  DFA powerSetConstruction({bool includeDeadState = false}) {
     NFA nfa = removeEpsilonTransitions();
 
     Set<State> states = <State>{};
@@ -541,16 +541,18 @@ final class NFA extends FiniteAutomata {
             ...?nfa._transitions[(from, letter)],
         };
 
-        if (nextStates.isNotEmpty) {
-          var (bool isNew, State toState) = createOrGetState(nextStates);
+        if (!includeDeadState && nextStates.isEmpty) {
+          continue;
+        }
 
-          transitions[(fromState, letter)] = toState;
-          if (nextStates.intersection(nfa.accepting).isNotEmpty) {
-            accepting.add(toState);
-          }
-          if (isNew) {
-            queue.add(nextStates);
-          }
+        var (bool isNew, State toState) = createOrGetState(nextStates);
+
+        transitions[(fromState, letter)] = toState;
+        if (nextStates.intersection(nfa.accepting).isNotEmpty) {
+          accepting.add(toState);
+        }
+        if (isNew) {
+          queue.add(nextStates);
         }
       }
     }
@@ -731,7 +733,7 @@ final class NFA extends FiniteAutomata {
 }
 
 extension on Set<State> {
-  String get label => map((State state) => state.label).join(", ");
+  String get label => (map((State state) => state.label).toList()..sort()).join(", ");
 }
 
 extension<K, V> on Map<K, V> {

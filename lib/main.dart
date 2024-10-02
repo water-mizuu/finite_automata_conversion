@@ -1,5 +1,5 @@
 // cspell: disable
-// ignore_for_file: unreachable_from_main
+// ignore_for_file: unreachable_from_main, always_specify_types
 
 import "dart:io";
 
@@ -44,7 +44,7 @@ const Letter eight = Letter("8");
 const Letter nine = Letter("9");
 
 void main(List<String> arguments) {
-  test5();
+  test16();
 }
 
 void test0() {
@@ -293,7 +293,6 @@ void test11() {
 }
 
 void test12() {
-  // (a+b)c
   RegularExpression regex = a & (b | c).plus;
   NFA nfaE = NFA.fromThompsonConstruction(regex);
   NFA nfa = nfaE.removeEpsilonTransitions();
@@ -305,7 +304,132 @@ void test12() {
   File("dfa.dot").writeAsStringSync(dfa.dot());
   File("dfa_m.dot").writeAsStringSync(minimalDfa.dot());
 
-  print(dfa.accepts("01010010101001010101010"));
+  print(dfa.accepts("abbbcbccccbcbcbccbcb"));
+  print(minimalDfa.generateTransitionTable());
+}
+
+void test13() {
+  /// (b(a*b)*)*
+  const State q0 = State(0, "q0");
+  const State q1 = State(1, "q1");
+  const State q2 = State(2, "q2");
+  const State q3 = State(3, "q3");
+  Set<State> states = <State>{q0, q1, q2, q3};
+  Set<Letter> alphabet = <Letter>{a, b};
+  Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
+    (q0, a): <State>{q1, q3},
+    (q0, b): <State>{q0},
+    (q1, a): <State>{q1},
+    (q1, b): <State>{q2},
+    (q2, a): <State>{q1},
+    (q2, b): <State>{q0},
+    (q3, a): <State>{q1},
+    (q3, b): <State>{q0},
+  };
+  State start = q0;
+  Set<State> accept = <State>{q2};
+
+  NFA automata = (states, alphabet, transitions, start, accept).automata;
+  File("output.dot").writeAsStringSync(automata.powerSetConstruction().minimized().dot(stateName: StateName.renamed));
+}
+
+void test14() {
+  RegularExpression regex = (a | b).star & (a & b);
+
+  File("output.dot").writeAsStringSync(
+    regex.glushkovConstruction().dot(stateName: StateName.renamed),
+  );
+}
+
+void test15() {
+  const State q0 = State(0, "q0");
+  const State q1 = State(1, "q1");
+  const State q2 = State(2, "q2");
+  const State q3 = State(3, "q3");
+
+  Set<State> states = <State>{q0, q1, q2, q3};
+  Set<Letter> alphabet = <Letter>{a, b};
+  Map<(State, Letter), Set<State>> transitions = <(State, Letter), Set<State>>{
+    (q0, a): <State>{q0, q1},
+    (q0, b): <State>{q0},
+    (q1, a): <State>{q1},
+    (q1, b): <State>{q1, q2},
+    (q2, a): <State>{q1},
+    (q2, b): <State>{q0},
+  };
+  State start = q0;
+  Set<State> accept = <State>{q2};
+
+  NFA automata = (states, alphabet, transitions, start, accept).automata;
+  File("output.dot").writeAsStringSync(automata.dot());
+}
+
+void test16() {
+  const q0 = State(0, "q1, q5");
+  const q1 = State(1, "q1");
+  const q2 = State(2, "q2");
+  const q3 = State(3, "q3");
+  const q4 = State(4, "q4");
+  const q5 = State(5, "q5");
+  const q6 = State(6, "q6");
+  const q7 = State(7, "q7");
+
+  var states = {q0, q1, q2, q3, q4, q5, q6, q7};
+  var alphabet = {x, y, z};
+  var transitions = {
+    (q0, epsilon): {q1, q5},
+    (q1, x): {q2},
+    (q1, y): {q3},
+    (q2, y): {q4},
+    (q3, z): {q4},
+    (q4, x): {q2},
+    (q4, y): {q3, q5},
+    (q5, x): {q5, q7},
+    (q5, z): {q6},
+    (q7, x): {q6},
+  };
+  var start = q0;
+  var accept = {q4, q6};
+
+  var nfaE = (states, alphabet, transitions, start, accept).automata;
+  var nfa = nfaE.removeEpsilonTransitions();
+  var dfa = nfa.powerSetConstruction(includeDeadState: true);
+  var dfaM = dfa.minimized();
+
+  File("nfa_e.dot").writeAsStringSync(nfaE.dot(stateName: StateName.renamed));
+  File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.renamed));
+  File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.renamed));
+  File("dfa_m.dot").writeAsStringSync(dfaM.dot(stateName: StateName.renamed));
+}
+
+void test17() {
+  const q1 = State(1, "q1");
+  const q2 = State(2, "q2");
+  const q3 = State(3, "q3");
+  const q4 = State(4, "q4");
+  const q5 = State(5, "q5");
+  var states = {q1, q2, q3, q4, q5};
+  var alphabet = {zero, one, two};
+  var transitions = {
+    (q1, zero): {q1, q2},
+    (q1, one): {q5},
+    (q2, one): {q3},
+    (q2, two): {q4},
+    (q3, one): {q1, q3},
+    (q4, one): {q2},
+    (q4, two): {q2, q3, q4},
+    (q5, two): {q4},
+  };
+  var start = q1;
+  var accept = {q2};
+
+  var nfa = (states, alphabet, transitions, start, accept).automata;
+  var dfa = nfa.powerSetConstruction();
+  var dfaM = dfa.minimized();
+
+  File("nfa.dot").writeAsStringSync(nfa.dot(stateName: StateName.original));
+  File("dfa.dot").writeAsStringSync(dfa.dot(stateName: StateName.original));
+  File("dfa_m.dot").writeAsStringSync(dfaM.dot(stateName: StateName.original));
 }
 
 extension<T> on Set<T> {
